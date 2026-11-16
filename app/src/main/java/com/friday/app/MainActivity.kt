@@ -128,7 +128,19 @@ fun FridayApp(vm: FridayViewModel) {
             override fun onRmsChanged(rmsdB: Float) = Unit
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEndOfSpeech() { voiceStatus = "PROCESSING…" }
-            override fun onError(error: Int) { voiceStatus = "VOICE ERROR • $error" }
+            override fun onError(error: Int) {
+                voiceStatus = when (error) {
+                    SpeechRecognizer.ERROR_AUDIO -> "MICROPHONE AUDIO ERROR"
+                    SpeechRecognizer.ERROR_CLIENT -> "SPEECH SERVICE CLIENT ERROR"
+                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "MICROPHONE PERMISSION DENIED"
+                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "SPEECH SERVICE NETWORK ERROR"
+                    SpeechRecognizer.ERROR_NO_MATCH -> "NO SPEECH RECOGNIZED • TRY AGAIN"
+                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "SPEECH SERVICE BUSY"
+                    SpeechRecognizer.ERROR_SERVER -> "SPEECH SERVICE SERVER ERROR"
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "NO SPEECH DETECTED"
+                    else -> "SPEECH ERROR • $error"
+                }
+            }
             override fun onResults(results: Bundle?) {
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                 if (!spoken.isNullOrBlank()) vm.send(spoken)
@@ -328,8 +340,8 @@ Chat messages loaded: ${state.messages.size}
                     OutlinedButton(onClick = { folderPicker.launch(null) }) { Text("Select a folder instead", color = Neon) }
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("GOOGLE ACCOUNT & PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                    Text(state.googleStatus, color = Muted, fontSize = 12.sp)
-                    Text("Choose your Google account, then approve read-only access to Drive, Gmail, Calendar and Contacts. Tokens stay in memory only. OAuth must match package com.friday.app and this APK signing SHA-1.", color = Muted, fontSize = 10.sp)
+                    Text(if (state.googleConnected) "CONNECTED • local snapshot available" else state.googleStatus, color = if (state.googleConnected) Neon else Muted, fontSize = 12.sp)
+                    Text(if (state.googleConnected) "Google authorization is active for this local snapshot. Refresh to fetch the latest approved data. FRIDAY only injects matching cached records into relevant prompts." else "Choose your Google account and approve read-only access to Drive, Gmail, Calendar and Contacts. OAuth must match package com.friday.app and this APK signing SHA-1.", color = Muted, fontSize = 10.sp)
                     Button(onClick = {
                         googleActionError = null
                         Identity.getAuthorizationClient(context).authorize(GoogleContextSync.authorizationRequest())
@@ -342,7 +354,7 @@ Chat messages loaded: ${state.messages.size}
                                 else googleActionError = "Google returned no access token"
                             }
                             .addOnFailureListener { error -> googleActionError = "Google authorization failed: ${error.message ?: error.javaClass.simpleName}" }
-                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Sign in with Google • Read only", color = Night) }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text(if (state.googleConnected) "Refresh Google data" else "Connect Google • Read only", color = Night) }
                     TextButton(onClick = { vm.disconnectGoogle() }) { Text("Delete local Google cache", color = Color(0xFFFF9CA9)) }
                     googleActionError?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
