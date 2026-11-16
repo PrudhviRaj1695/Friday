@@ -4,6 +4,13 @@ import android.Manifest
 import android.content.Intent
 import android.net.Uri
 import android.os.Environment
+import android.app.ActivityManager
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.BatteryManager
+import android.os.StatFs
+import android.os.Build
 import android.provider.Settings
 import android.os.Bundle
 import android.speech.RecognitionListener
@@ -28,6 +35,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -172,23 +180,72 @@ fun FridayApp(vm: FridayViewModel) {
 
     val chatListState = rememberLazyListState()
     val clipboard = LocalClipboardManager.current
-    val debugReport = remember(state) {
+    val debugReport = remember(state, voiceStatus, allFilesGranted, selectedFolderLabel) {
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memory = ActivityManager.MemoryInfo().also { activityManager.getMemoryInfo(it) }
+        val storage = StatFs(context.filesDir.absolutePath)
+        val batteryManager = context.getSystemService(Context.BATTERY_SERVICE) as BatteryManager
+        val battery = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY)
+        val connectivity = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val network = connectivity.activeNetwork
+        val caps = network?.let { connectivity.getNetworkCapabilities(it) }
+        val networkType = when {
+            caps == null -> "offline / unavailable"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "Wi-Fi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "Cellular"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> "Ethernet"
+            else -> "Other"
+        }
+        val appInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val ttsEngines = runCatching { android.speech.tts.TextToSpeech(context) { } }.getOrNull()
         """
-FRIDAY DIAGNOSTICS
-Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}
-Android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})
+FRIDAY FULL DIAGNOSTICS
+Captured: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", Locale.getDefault()).format(java.util.Date())}
+APP
+Package: ${context.packageName}
+Version: ${appInfo.versionName} (${appInfo.longVersionCode})
+Target SDK: ${context.applicationInfo.targetSdkVersion}
+DEVICE
+Manufacturer: ${Build.MANUFACTURER}
+Model: ${Build.MODEL}
+Device: ${Build.DEVICE}
+Android: ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})
+ABI: ${Build.SUPPORTED_ABIS.joinToString()}
+Low RAM device: ${activityManager.isLowRamDevice}
+Memory available: ${memory.availMem / 1024 / 1024} MB
+Memory total: ${memory.totalMem / 1024 / 1024} MB
+Memory low: ${memory.lowMemory}
+App storage free: ${storage.availableBytes / 1024 / 1024} MB
+App storage total: ${storage.totalBytes / 1024 / 1024} MB
+Battery: $battery%
+Network: $networkType
+MODEL / INFERENCE
+Selected model: ${state.selectedModelId}
 Model status: ${state.status}
 Model ready: ${state.modelReady}
 Busy: ${state.busy}
-Voice status: ${state.voiceStatus}
-Speech input status: $voiceStatus
-Google connected: ${state.googleConnected}
-Google status: ${state.googleStatus}
+Downloading: ${state.downloading} (${state.downloadProgress}%)
 Prompt processing: ${state.promptProcessingStatus}
 Generation: ${state.generationStatus}
 Overall performance: ${state.performanceStatus}
-Last error: ${state.error ?: "none"}
+VOICE
+Android TTS status: ${state.voiceStatus}
+Android TTS ready: ${state.systemVoiceReady}
+Speech input: $voiceStatus
+Speech recognition available: ${android.speech.SpeechRecognizer.isRecognitionAvailable(context)}
+MICROPHONE PERMISSION: ${androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED}
+GOOGLE / CONNECTORS
+Google connected: ${state.googleConnected}
+Google status: ${state.googleStatus}
+LOCAL DOCUMENTS
+Storage access: ${if (allFilesGranted) "broad access granted" else "broad access not granted"}
+Folder access: $selectedFolderLabel
+Indexed files: ${state.localDocuments.size}
+Text-readable files: ${state.localDocuments.count { it.content.isNotBlank() }}
+Document scan: ${state.documentStatus}
+CHAT / ERRORS
 Chat messages loaded: ${state.messages.size}
+Last error: ${state.error ?: "none"}
         """.trimIndent()
     }
 
