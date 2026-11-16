@@ -150,8 +150,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 )
                 _state.update { it.copy(modelReady = true, status = "On-device model ready • " + backendName, error = null) }
             } catch (e: Exception) {
-                conversation = null
-                engine = null
+                closeCurrent()
                 _state.update { it.copy(modelReady = false, status = "Model could not be loaded", error = e.message ?: "Unknown LiteRT-LM error") }
             }
         }
