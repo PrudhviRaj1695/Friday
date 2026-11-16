@@ -1,6 +1,6 @@
 # FRIDAY Google integration setup
 
-FRIDAY uses Android Google Identity Services authorization. It does not use an embedded WebView, a service account, or a backend. The user explicitly taps **Connect Google • Read only** before any Google authorization or data request starts.
+FRIDAY uses Android Google Identity Services authorization. It does not use an embedded WebView, a service account, or a backend. The user explicitly taps **Sign in with Google • Read only** before any Google authorization or data request starts.
 
 ## APIs to enable
 
@@ -79,3 +79,7 @@ This integration uses Android Google Identity **authorization** to obtain API sc
 **Important for GitHub Actions APKs:** the default Android debug keystore on a fresh GitHub-hosted runner is not a stable signing identity. Its SHA-1 can differ between workflow runs. Registering a local Android Studio debug SHA-1 will therefore not necessarily authorize an APK downloaded from GitHub Actions. For repeatable Google authorization, use a stable private signing keystore in GitHub Actions secrets and sign every distributed APK with it, or install a local build signed with the certificate whose SHA-1 is registered. Never commit a keystore or passwords to this public repository.
 
 If Google authorization succeeds but sync reports API errors, inspect the returned API error: an API may be disabled, the requested scope may not be configured on the consent screen, or the account may not be an allowed test user. Google restricted-scope verification is required before public production distribution.
+
+
+## Account chooser behavior
+FRIDAY explicitly requests account selection before the read-only authorization flow and requests OpenID, email and profile identity scopes alongside the four data scopes. The account chooser/consent screen is supplied by Google Play services; FRIDAY cannot force a Google account to exist on the device. If the flow returns no activity result, check that Google Play services is up to date and a Google account is present under Android Settings → Accounts.
