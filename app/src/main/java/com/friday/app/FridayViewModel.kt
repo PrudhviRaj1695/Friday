@@ -112,6 +112,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             - If the excerpts do not answer the question, say: "I couldn't find that in the documents currently indexed." Then identify what evidence is missing or ask which file/folder to scan.
             - If only part of a multi-part question is supported, answer the supported parts and explicitly mark the remaining parts as not found.
             - Cite only exact source labels supplied in the prompt, such as [SOURCE 1]. Never invent source numbers, titles, page numbers or references.
+            - For identity-number questions (PAN, Aadhaar, passport, etc.), answer only when the retrieved excerpt explicitly labels the exact requested identifier type. A PAN request must never be answered with an Aadhaar number, and vice versa. If the exact type is absent, say it was not found; do not infer from a different ID number.
+            - Never call a personal identifier "verified" unless the source explicitly establishes that status.
             - Keep source citations next to the claims they support. Do not cite a source that does not support the claim.
             - Separate document facts from your own general explanation. Label general context clearly and only add it when useful or requested.
             - Do not describe retrieved real user files as simulated, sample or enterprise project documentation unless the source itself explicitly says that.
