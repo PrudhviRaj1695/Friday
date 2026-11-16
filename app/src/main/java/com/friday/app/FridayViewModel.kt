@@ -229,7 +229,12 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val summary = withContext(Dispatchers.IO) { GoogleContextSync.sync(getApplication(), accessToken) }
                 googleContext = summary
-                _state.update { it.copy(googleStatus = "Google context synced locally") }
+                val failedSections = summary.lineSequence().filter { "unavailable:" in it.lowercase() }.toList()
+                if (failedSections.isEmpty()) {
+                    _state.update { it.copy(googleStatus = "Google context synced locally") }
+                } else {
+                    _state.update { it.copy(googleStatus = "Google connected • some data sources failed (${failedSections.size})", error = failedSections.joinToString("\n").take(900)) }
+                }
             } catch (e: Exception) {
                 _state.update { it.copy(googleStatus = e.message ?: "Google sync failed") }
             }
