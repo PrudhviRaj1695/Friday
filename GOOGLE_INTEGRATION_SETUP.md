@@ -64,3 +64,18 @@ Use **Disconnect and delete local Google cache** in FRIDAY setup. Also review/re
 - Gmail imports recent message summaries/snippets, not full message bodies or attachments.
 - The app needs network access during sync. After the snapshot is cached, the selected context is used by the local model.
 - The current sync is intentionally bounded to avoid long first-run waits and excessive local storage.
+
+
+## Troubleshooting: Google authorization does not open or fails
+
+This integration uses Android Google Identity **authorization** to obtain API scopes. It is not a separate Google account/profile screen. The Android OAuth credential must match the exact installed application ID and the certificate that signed the installed APK.
+
+1. In Google Cloud Console, select the same project where the four APIs are enabled.
+2. Create or verify an OAuth client with application type **Android**, package `com.friday.app`, and the SHA-1 fingerprint of the APK you actually installed.
+3. Under Google Auth Platform → Audience, add the Google account as a test user while the app is in Testing.
+4. Confirm Drive API, Gmail API, Calendar API and People API are enabled.
+5. Reinstall an APK signed with the matching certificate, then retry authorization.
+
+**Important for GitHub Actions APKs:** the default Android debug keystore on a fresh GitHub-hosted runner is not a stable signing identity. Its SHA-1 can differ between workflow runs. Registering a local Android Studio debug SHA-1 will therefore not necessarily authorize an APK downloaded from GitHub Actions. For repeatable Google authorization, use a stable private signing keystore in GitHub Actions secrets and sign every distributed APK with it, or install a local build signed with the certificate whose SHA-1 is registered. Never commit a keystore or passwords to this public repository.
+
+If Google authorization succeeds but sync reports API errors, inspect the returned API error: an API may be disabled, the requested scope may not be configured on the consent screen, or the account may not be an allowed test user. Google restricted-scope verification is required before public production distribution.
