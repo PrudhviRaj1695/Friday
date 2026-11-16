@@ -75,7 +75,7 @@ fun FridayApp(vm: FridayViewModel) {
             runCatching { Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data!!).accessToken }
                 .onSuccess { token -> if (!token.isNullOrBlank()) vm.syncGoogleContext(token) else googleActionError = "Google returned no access token" }
                 .onFailure { googleActionError = it.message ?: "Google authorization failed" }
-        } else googleActionError = "Google authorization cancelled"
+        } else googleActionError = "Google authorization was cancelled. If no account/consent screen appeared, verify the Android OAuth client package and signing SHA-1 in Google Cloud Console, add your account as a test user, and enable Drive, Gmail, Calendar and People APIs."
     }
     val speechRecognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
@@ -170,7 +170,7 @@ fun FridayApp(vm: FridayViewModel) {
                         Text(if (state.busy) "THINKING…" else if (voiceStatus.isNotBlank()) voiceStatus else "Tap to Command",
                             color = Neon, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
                         Spacer(Modifier.height(5.dp))
-                        Text(if (state.voiceModelReady) "KOKORO • OFFLINE NATURAL VOICE" else "INSTALL VOICE IN SETUP",
+                        Text(if (state.systemVoiceReady) "ANDROID VOICE • READY" else "ANDROID VOICE • INITIALIZING",
                             color = Muted, fontSize = 9.sp, letterSpacing = 1.4.sp)
                     }
                 }
@@ -199,8 +199,9 @@ fun FridayApp(vm: FridayViewModel) {
                     Text(state.status, color = Muted, fontSize = 12.sp)
                     Text(state.performanceStatus, color = SoftCyan, fontSize = 10.sp, lineHeight = 15.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("NATURAL LOCAL VOICE • KOKORO", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("VOICE OUTPUT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
+                    Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test voice", color = Night) }
                     if (state.voiceDownloading) {
                         LinearProgressIndicator(progress = { state.voiceDownloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
                         Text("Downloading voice model: " + state.voiceDownloadProgress + "%", color = Muted, fontSize = 12.sp)
@@ -221,7 +222,7 @@ fun FridayApp(vm: FridayViewModel) {
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("GOOGLE PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.googleStatus, color = Muted, fontSize = 12.sp)
-                    Text("Read-only: Drive, Gmail, Calendar and Contacts. Approved data is summarized and cached on this phone. Access tokens are not saved.", color = Muted, fontSize = 10.sp)
+                    Text("Google account authorization for read-only Drive, Gmail, Calendar and Contacts. The Android OAuth client must match com.friday.app and this APK signing SHA-1. Tokens are not saved.", color = Muted, fontSize = 10.sp)
                     Button(onClick = {
                         googleActionError = null
                         Identity.getAuthorizationClient(context).authorize(GoogleContextSync.authorizationRequest())
@@ -233,13 +234,13 @@ fun FridayApp(vm: FridayViewModel) {
                                 } else if (!auth.accessToken.isNullOrBlank()) vm.syncGoogleContext(auth.accessToken!!)
                                 else googleActionError = "Google returned no access token"
                             }
-                            .addOnFailureListener { googleActionError = it.message ?: "Could not start Google authorization" }
-                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Connect Google • Read only", color = Night) }
+                            .addOnFailureListener { error -> googleActionError = "Google authorization failed: ${error.message ?: error.javaClass.simpleName}" }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Authorize Google • Read only", color = Night) }
                     TextButton(onClick = { vm.disconnectGoogle() }) { Text("Delete local Google cache", color = Color(0xFFFF9CA9)) }
                     googleActionError?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Speak replies (Kokoro local)", color = Color.White, modifier = Modifier.weight(1f))
+                        Text("Speak replies (Android voice)", color = Color.White, modifier = Modifier.weight(1f))
                         Switch(checked = state.speakReplies, onCheckedChange = vm::setSpeakReplies)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
