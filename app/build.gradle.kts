@@ -33,7 +33,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
-    implementation("com.google.android.gms:play-services-auth:21.3.0")
+    implementation("com.google.android.gms:play-services-auth:21.5.0")
     implementation("com.github.k2-fsa:sherpa-onnx:1.13.8") {
         // The Android AAR already packages the sherpa-onnx Kotlin/JVM API.
         // Exclude its separately published JVM JAR using its actual Maven group.
