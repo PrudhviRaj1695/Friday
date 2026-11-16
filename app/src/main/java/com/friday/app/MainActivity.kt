@@ -347,12 +347,12 @@ Last error: ${state.error ?: "none"}
             text = {
                 Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DiagnosticTile("MODEL", if (state.modelReady) "Ready" else "Not ready", state.modelReady)
-                        DiagnosticTile("VOICE", if (state.systemVoiceReady) "Ready" else "Check", state.systemVoiceReady)
+                        DiagnosticTile("MODEL", if (state.modelReady) "Ready" else "Not ready", state.modelReady, Modifier.weight(1f))
+                        DiagnosticTile("VOICE", if (state.systemVoiceReady) "Ready" else "Check", state.systemVoiceReady, Modifier.weight(1f))
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        DiagnosticTile("GOOGLE", if (state.googleConnected) "Connected" else "Offline", state.googleConnected)
-                        DiagnosticTile("STORAGE", if (allFilesGranted || selectedFolderLabel != "No folder selected") "Granted" else "Limited", allFilesGranted || selectedFolderLabel != "No folder selected")
+                        DiagnosticTile("GOOGLE", if (state.googleConnected) "Connected" else "Offline", state.googleConnected, Modifier.weight(1f))
+                        DiagnosticTile("STORAGE", if (allFilesGranted || selectedFolderLabel != "No folder selected") "Granted" else "Limited", allFilesGranted || selectedFolderLabel != "No folder selected", Modifier.weight(1f))
                     }
                     Text("LATENCY", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.promptProcessingStatus, color = Color.White, fontSize = 11.sp)
@@ -538,11 +538,11 @@ Last error: ${state.error ?: "none"}
 }
 
 @Composable
-private fun DiagnosticTile(label: String, value: String, healthy: Boolean) {
+private fun DiagnosticTile(label: String, value: String, healthy: Boolean, modifier: Modifier = Modifier) {
     Surface(
         color = if (healthy) Color(0xFF0A2B31) else Color(0xFF30271F),
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier.weight(1f)
+        modifier = modifier
     ) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(label, color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
