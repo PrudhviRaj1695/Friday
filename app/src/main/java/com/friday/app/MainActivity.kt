@@ -477,6 +477,15 @@ Last error: ${state.error ?: "none"}
                     Button(onClick = { vm.scanLocalDocuments() }, enabled = !state.scanningDocuments, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
                         Text(if (state.scanningDocuments) "Scanning…" else "Scan phone documents", color = Night)
                     }
+                    if (state.scanningDocuments || state.documentProgress > 0) {
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(if (state.scanningDocuments) "DOCUMENT SCAN" else "LAST SCAN", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                            Text("${state.documentProgress}%", color = Neon, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        }
+                        LinearProgressIndicator(progress = { state.documentProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon, trackColor = Color(0xFF1C354A))
+                        Text("${state.documentsProcessed}/${state.documentsTotal} files • ${state.documentsExtracted} extracted • ${state.documentsFailed} failed", color = Muted, fontSize = 10.sp)
+                        if (state.documentCurrentFile.isNotBlank()) Text("Current: ${state.documentCurrentFile}", color = SoftCyan, fontSize = 10.sp, maxLines = 1)
+                    }
                     Text(state.documentStatus, color = Muted, fontSize = 11.sp)
                     Text("Ask naturally in chat: \"Summarize my PDF about X\" or \"What does my project plan say about authentication?\" Answers use the best matching local excerpts.", color = SoftCyan, fontSize = 10.sp)
                     state.localDocuments.take(20).forEach { doc ->
