@@ -72,7 +72,7 @@ private val Muted = Color(0xFF8CA8BC)
 
 class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {\n        super.onActivityResult(requestCode, resultCode, data)\n        if (requestCode == 7401 && resultCode == android.app.Activity.RESULT_OK) {\n            val visualContext = data?.getStringExtra("vision_result").orEmpty()\n            if (visualContext.isNotBlank()) fridayViewModel.send("Analyze this result from my camera. Use it as visual evidence and explain any uncertainty:\\n$visualContext")\n        }\n    }\n    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = android.graphics.Color.rgb(2, 11, 24)
         window.navigationBarColor = android.graphics.Color.rgb(2, 11, 24)
@@ -309,7 +309,7 @@ Last error: ${state.error ?: "none"}
 
             state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp, modifier = Modifier.padding(vertical = 3.dp)) }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }, enabled = !state.busy) {
+                IconButton(onClick = {\n                    if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {\n                        (context as? android.app.Activity)?.startActivityForResult(Intent(context, VisionCameraActivity::class.java), 7401)\n                    } else {\n                        (context as? android.app.Activity)?.requestPermissions(arrayOf(Manifest.permission.CAMERA), 7402)\n                    }\n                }, enabled = !state.busy) { Text("📷", fontSize = 21.sp) }\n                IconButton(onClick = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }, enabled = !state.busy) {
                     Text("🎙", fontSize = 22.sp)
                 }
                 OutlinedTextField(
