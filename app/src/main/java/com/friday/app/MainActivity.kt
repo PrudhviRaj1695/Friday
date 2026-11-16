@@ -92,6 +92,7 @@ fun FridayApp(vm: FridayViewModel) {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             }
             speechRecognizer.startListening(intent)
         } else voiceStatus.value = if (speechRecognizer == null) "Speech recognition is unavailable" else "Microphone permission denied"
