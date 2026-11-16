@@ -42,7 +42,8 @@ data class FridayState(
 class FridayViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         const val MODEL_NAME = "Qwen3-0.6B.litertlm"
-        const val MODEL_SIZE_BYTES = 586_000_000L
+        const val MODEL_MIN_SIZE_BYTES = 500_000_000L
+        const val MODEL_MAX_SIZE_BYTES = 700_000_000L
         const val MODEL_URL = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm"
         private const val SYSTEM_PROMPT = "You are FRIDAY, a private personal AI assistant. Be practical, accurate, calm and concise. Do not claim you performed actions you did not perform. You run locally on the user's phone."
     }
@@ -62,7 +63,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         val model = modelFile()
-        if (model.exists() && model.length() in (MODEL_SIZE_BYTES - 20_000_000L)..(MODEL_SIZE_BYTES + 20_000_000L)) {
+        if (model.exists() && model.length() in MODEL_MIN_SIZE_BYTES..MODEL_MAX_SIZE_BYTES) {
             loadModel(model.absolutePath)
         } else _state.update { it.copy(status = "Download the on-device model to begin") }
     }
@@ -92,8 +93,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         val code = connection.responseCode
                         check(code in 200..299) { "Model download failed with HTTP $code" }
                         val total = connection.contentLengthLong
-                        check(total in (MODEL_SIZE_BYTES - 20_000_000L)..(MODEL_SIZE_BYTES + 20_000_000L)) {
-                            "Unexpected model size: " + total + " bytes. Expected approximately 586 MB."
+                        check(total in MODEL_MIN_SIZE_BYTES..MODEL_MAX_SIZE_BYTES) {
+                            "Unexpected model size: " + total + " bytes. Expected a LiteRT model between 500 MB and 700 MB."
                         }
                         connection.inputStream.use { input ->
                             temp.outputStream().buffered(1024 * 1024).use { output ->
@@ -109,7 +110,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                                 }
                             }
                         }
-                        check(temp.length() == total) { "Downloaded file size does not match the model card." }
+                        check(temp.length() == total) { "Downloaded file size does not match the server-reported size." }
                         if (target.exists()) target.delete()
                         check(temp.renameTo(target)) { "Could not move model into private app storage." }
                     } finally {
