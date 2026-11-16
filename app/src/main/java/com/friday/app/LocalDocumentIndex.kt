@@ -101,7 +101,7 @@ object LocalDocumentIndex {
             while (true) {
                 val entry = zip.nextEntry ?: break
                 if (!entry.isDirectory && entry.name in names) {
-                    val xml = zip.bufferedReader().use { it.readText() }
+                    val xml = String(zip.readBytes(), Charsets.UTF_8)
                     out.append('\n').append(stripMarkup(xml)).append('\n')
                 }
                 zip.closeEntry()
