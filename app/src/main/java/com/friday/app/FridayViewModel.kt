@@ -42,6 +42,7 @@ data class FridayState(
     val speakReplies: Boolean = true,
     val voiceModelReady: Boolean = false,
     val systemVoiceReady: Boolean = false,
+    val voicePlaying: Boolean = false,
     val voiceDownloading: Boolean = false,
     val voiceDownloadProgress: Int = 0,
     val voiceStatus: String = "Natural voice model not installed",
@@ -138,7 +139,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     // Android's installed TTS engine avoids bundled models and native audio runtimes.
     private val systemVoice = SystemVoiceEngine(app) { ready, message ->
-        _state.update { it.copy(systemVoiceReady = ready, voiceStatus = message) }
+        _state.update { it.copy(systemVoiceReady = ready, voicePlaying = message.startsWith("Speaking"), voiceStatus = message) }
     }
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
     private val _state = MutableStateFlow(FridayState(
@@ -340,7 +341,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         playVoice("Hello. I am FRIDAY. This is a test of the selected offline voice.")
     }
 
-    fun stopSpeaking() { systemVoice.stop() }
+    fun stopSpeaking() {
+        systemVoice.stop()
+        _state.update { it.copy(voicePlaying = false, voiceStatus = "Voice stopped") }
+    }
 
     fun syncGoogleContext(accessToken: String) {
         scope.launch {
