@@ -96,6 +96,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<FridayState> = _state.asStateFlow()
     private var engine: Engine? = null
     private var conversation: Conversation? = null
+    @Volatile private var activeGenerationJob: kotlinx.coroutines.Job? = null
 
     private fun personalizedSystemPrompt(): String {
         val p = _state.value.personalProfile
@@ -381,7 +382,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             store.append("assistant", answer)
             return
         }
-        scope.launch {
+        activeGenerationJob = scope.launch {
             _state.update { it.copy(busy = true, error = null, performanceStatus = "Measuring local inference…", messages = it.messages + ChatLine("user", clean) + ChatLine("assistant", "")) }
             store.append("user", clean)
             val response = StringBuilder()
@@ -450,7 +451,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun setCloudApproval(enabled: Boolean) {
+    fun stopGeneration() {\n        activeGenerationJob?.cancel(CancellationException("Stopped by user"))\n        stopSpeaking()\n    }\n\n    fun setCloudApproval(enabled: Boolean) {
         prefs.edit().putBoolean("cloud_approval", enabled).apply()
         _state.update { it.copy(cloudApprovalEnabled = enabled) }
     }
