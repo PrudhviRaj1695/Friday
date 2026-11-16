@@ -101,6 +101,20 @@ class KokoroVoiceEngine(private val context: Context) {
             if (!extracted.isDirectory) throw IllegalStateException("Voice model archive has an unexpected layout")
             if (!extracted.renameTo(target)) throw IllegalStateException("Could not install voice model")
             staging.deleteRecursively()
+            val lexicon = File(target, "lexicon-en-us.txt")
+            val lexiconConnection = (URL("https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/lexicon-en-us.txt").openConnection() as HttpURLConnection).apply {
+                connectTimeout = 20000
+                readTimeout = 60000
+                instanceFollowRedirects = true
+            }
+            try {
+                lexiconConnection.connect()
+                check(lexiconConnection.responseCode in 200..299) { "English pronunciation dictionary download failed" }
+                lexiconConnection.inputStream.use { input -> FileOutputStream(lexicon).use { output -> input.copyTo(output) } }
+            } finally {
+                lexiconConnection.disconnect()
+            }
+            check(lexicon.length() > 1_000_000L) { "English pronunciation dictionary is incomplete" }
             archive.delete()
             onProgress(100)
             isInstalled()
@@ -124,7 +138,7 @@ class KokoroVoiceEngine(private val context: Context) {
                         voices = File(dir, "voices.bin").absolutePath,
                         tokens = File(dir, "tokens.txt").absolutePath,
                         dataDir = File(dir, "espeak-ng-data").absolutePath,
-                        lexicon = File(dir, "lexicon-us-en.txt").absolutePath
+                        lexicon = File(dir, "lexicon-en-us.txt").absolutePath
                     ),
                     numThreads = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 4),
                     provider = "cpu",
