@@ -38,6 +38,7 @@ data class FridayState(
     val cloudApprovalEnabled: Boolean = false,
     val speakReplies: Boolean = true,
     val voiceModelReady: Boolean = false,
+    val systemVoiceReady: Boolean = false,
     val voiceDownloading: Boolean = false,
     val voiceDownloadProgress: Int = 0,
     val voiceStatus: String = "Natural voice model not installed",
@@ -62,6 +63,9 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val voiceDispatcher = voiceExecutor.asCoroutineDispatcher()
     private val voiceScope = CoroutineScope(SupervisorJob() + voiceDispatcher)
     private val voiceEngine = LocalVoiceEngine(app)
+    private val systemVoice = SystemVoiceEngine(app) { ready, message ->
+        _state.update { it.copy(systemVoiceReady = ready, voiceStatus = message) }
+    }
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
     private val _state = MutableStateFlow(FridayState(
         messages = store.readAll(),
@@ -199,15 +203,22 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun speakSentence(text: String) {
-        if (!_state.value.voiceModelReady || !_state.value.speakReplies || text.isBlank()) return
-        voiceScope.launch {
-            try {
-                val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
-                if (speechText.isNotBlank()) voiceEngine.speak(speechText, speakerId = 0, speed = 1.02f)
-            } catch (e: Exception) {
-                _state.update { it.copy(voiceStatus = e.message ?: "Natural voice playback failed") }
+        if (!_state.value.speakReplies || text.isBlank()) return
+        val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
+        if (speechText.isBlank()) return
+        // Android's installed speech engine is the reliable default and needs no
+        // separate 300 MB voice-model download. Kokoro remains an optional fallback.
+        val queued = systemVoice.speak(speechText)
+        if (!queued && _state.value.voiceModelReady) {
+            voiceScope.launch {
+                runCatching { voiceEngine.speak(speechText, speakerId = 0, speed = 1.0f) }
+                    .onFailure { failure -> _state.update { it.copy(voiceStatus = failure.message ?: "Voice playback failed") } }
             }
         }
+    }
+
+    fun testVoice() {
+        speakSentence("Hello. I am FRIDAY. Voice output is working.")
     }
 
     fun stopSpeaking() { voiceEngine.stop() }
@@ -276,9 +287,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 val answer = response.toString().trim()
-                if (_state.value.speakReplies && _state.value.voiceModelReady && answer.isNotBlank()) speakSentence(answer)
                 if (answer.isNotEmpty()) store.append("assistant", answer)
-                if (_state.value.speakReplies && _state.value.voiceModelReady && spokenUntil < answer.length) speakSentence(answer.substring(spokenUntil))
+                if (_state.value.speakReplies && answer.isNotBlank()) speakSentence(answer)
                 val elapsed = (android.os.SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(1)
                 val first = firstChunkMs?.let { "${it}ms" } ?: "no tokens"
                 val rate = "%.1f".format(java.util.Locale.US, answer.length * 1000.0 / elapsed)
@@ -316,6 +326,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     }
     override fun onCleared() {
         voiceEngine.stop()
+        systemVoice.shutdown()
         voiceScope.launch { voiceEngine.release(); voiceDispatcher.close(); voiceExecutor.shutdown() }
         scope.launch {
             closeCurrent()
