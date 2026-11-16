@@ -2,7 +2,7 @@
 
 ## Product decisions
 - **AI mode:** Hybrid architecture. On-device inference is the default. Cloud inference is disabled until a provider is configured and a per-request approval flow is implemented.
-- **Interaction:** Text chat, Android speech recognition input, Android TextToSpeech output.
+- **Interaction:** Text chat, Android speech recognition input, Kokoro offline neural TTS output (Android TextToSpeech fallback).
 - **Memory:** Conversation history stored in a private SQLite database in the app sandbox.
 
 ## Current implementation
@@ -13,7 +13,7 @@
 - GPU initialization is attempted first; CPU is the fallback.
 - Conversation replies stream into the UI and conversation turns persist locally.
 - Android speech recognizer is asked to prefer offline recognition. Actual offline support depends on the installed speech recognition service and language pack; Android may still use a network service.
-- Android TextToSpeech is used for spoken replies; offline voice availability depends on installed TTS voices.
+- Downloaded Kokoro INT8 is the preferred speech engine once installed and initialized. Android TextToSpeech is used only when the Kokoro model is not installed.
 
 ## Build and install
 1. Open GitHub Actions: https://github.com/PrudhviRaj1695/Friday/actions
@@ -22,6 +22,11 @@
 4. Open FRIDAY and tap **Download local AI model**. Use Wi-Fi and keep at least 1.5 GB free. The model download is about 586 MB.
 5. Wait for the model to initialize. Send a test prompt such as `Say hello and tell me you are running locally.`
 6. Grant microphone permission when using voice input.
+
+## Voice setup
+- Open Setup → Voice Output. Download the offline Kokoro voice model and wait until the status says `Downloaded Kokoro voice ready • offline`.
+- Tap `Test voice`. If Kokoro fails to initialize or play, the screen reports the Kokoro error instead of pretending the downloaded voice is active.
+- Android TextToSpeech is only the fallback when no Kokoro model is installed.
 
 ## Privacy and hybrid mode
 - The local model and conversation database are stored inside the Android app's private sandbox.
@@ -36,7 +41,7 @@ This is an early personal prototype, not a production security boundary. Do not 
 
 ## Next milestones
 1. Verify LiteRT-LM API compile and model startup on the actual S25 Ultra.
-2. Add strict offline ASR and fully offline TTS voice selection.
+2. Add strict offline ASR.
 3. Add explicit per-message cloud consent and configure a provider (user chooses provider).
 4. Add memory search, summaries, export/delete controls, and encrypted local storage.
 5. Add deterministic tool registry and approval UI before any device actions.
