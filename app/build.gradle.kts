@@ -34,11 +34,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
     implementation("com.google.android.gms:play-services-auth:21.5.0")
-    implementation("com.github.k2-fsa:sherpa-onnx:1.13.8") {
-        // The Android AAR already packages the sherpa-onnx Kotlin/JVM API.
-        // Exclude its separately published JVM JAR using its actual Maven group.
-        exclude(group = "com.github.k2-fsa.sherpa-onnx", module = "sherpa-onnx-jvm")
-    }
-    implementation("org.apache.commons:commons-compress:1.27.1")
+
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
