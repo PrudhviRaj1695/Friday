@@ -33,7 +33,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
-    implementation("com.k2fsa.sherpa.onnx:sherpa-onnx-android:1.13.8")
+    implementation("com.github.k2-fsa:sherpa-onnx:1.13.8")
     implementation("org.apache.commons:commons-compress:1.27.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
