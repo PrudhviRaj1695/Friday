@@ -16,6 +16,9 @@ import java.net.URLEncoder
  */
 object GoogleContextSync {
     val scopes = listOf(
+        Scope("openid"),
+        Scope("email"),
+        Scope("profile"),
         Scope("https://www.googleapis.com/auth/drive.readonly"),
         Scope("https://www.googleapis.com/auth/gmail.readonly"),
         Scope("https://www.googleapis.com/auth/calendar.events.readonly"),
@@ -23,7 +26,10 @@ object GoogleContextSync {
     )
 
     fun authorizationRequest(): AuthorizationRequest =
-        AuthorizationRequest.builder().setRequestedScopes(scopes).build()
+        AuthorizationRequest.builder()
+            .setRequestedScopes(scopes)
+            .setPrompt(AuthorizationRequest.Prompt.SELECT_ACCOUNT)
+            .build()
 
     fun sync(context: Context, accessToken: String): String {
         require(accessToken.isNotBlank()) { "Google authorization returned no access token" }
