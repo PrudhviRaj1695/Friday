@@ -72,7 +72,14 @@ private val Muted = Color(0xFF8CA8BC)
 
 class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {\n        super.onActivityResult(requestCode, resultCode, data)\n        if (requestCode == 7401 && resultCode == android.app.Activity.RESULT_OK) {\n            val visualContext = data?.getStringExtra("vision_result").orEmpty()\n            if (visualContext.isNotBlank()) fridayViewModel.send("Analyze this result from my camera. Use it as visual evidence and explain any uncertainty:\\n$visualContext")\n        }\n    }\n    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 7401 && resultCode == android.app.Activity.RESULT_OK) {
+            val visualContext = data?.getStringExtra("vision_result").orEmpty()
+            if (visualContext.isNotBlank()) fridayViewModel.send("Analyze this result from my camera. Use it as visual evidence and explain any uncertainty:\n$visualContext")
+        }
+    }
+    override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = android.graphics.Color.rgb(2, 11, 24)
         window.navigationBarColor = android.graphics.Color.rgb(2, 11, 24)
