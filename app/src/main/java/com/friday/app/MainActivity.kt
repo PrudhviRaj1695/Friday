@@ -458,7 +458,7 @@ Last error: ${state.error ?: "none"}
                     }
                     Text(state.documentStatus, color = Muted, fontSize = 11.sp)\n                    Text("Ask naturally in chat: \"Summarize my PDF about X\" or \"What does my project plan say about authentication?\" Answers use the best matching local excerpts.", color = SoftCyan, fontSize = 10.sp)
                     state.localDocuments.take(20).forEach { doc ->
-                        Text("• ${doc.name}  ·  ${if (doc.content.isNotBlank()) "text indexed" else doc.mimeType}", color = Color(0xFFD8F7FA), fontSize = 10.sp)
+                        Text("• ${doc.name}  ·  ${if (doc.content.isNotBlank()) "extracted • searchable" else "not extracted • " + doc.mimeType}", color = Color(0xFFD8F7FA), fontSize = 10.sp)
                     }
                     if (state.localDocuments.size > 20) Text("…and ${state.localDocuments.size - 20} more", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
