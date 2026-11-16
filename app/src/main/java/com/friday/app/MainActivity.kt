@@ -72,11 +72,23 @@ fun FridayApp(vm: FridayViewModel) {
     var googleActionError by remember { mutableStateOf<String?>(null) }
     var clearMemoryConfirm by remember { mutableStateOf(false) }
     val googleAuthorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
-            runCatching { Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data!!).accessToken }
-                .onSuccess { token -> if (!token.isNullOrBlank()) vm.syncGoogleContext(token) else googleActionError = "Google returned no access token" }
-                .onFailure { googleActionError = it.message ?: "Google authorization failed" }
-        } else googleActionError = "Google authorization was cancelled. If no account/consent screen appeared, verify the Android OAuth client package and signing SHA-1 in Google Cloud Console, add your account as a test user, and enable Drive, Gmail, Calendar and People APIs."
+        val data = result.data
+        if (data != null) {
+            runCatching { Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(data).accessToken }
+                .onSuccess { token ->
+                    if (!token.isNullOrBlank()) vm.syncGoogleContext(token)
+                    else googleActionError = "Google returned no access token. Check that the requested scopes are enabled for this OAuth consent screen."
+                }
+                .onFailure { error ->
+                    googleActionError = "Google authorization failed: ${error.message ?: error.javaClass.simpleName}. Check the Android OAuth package/SHA-1 and Google Cloud test-user settings."
+                }
+        } else {
+            googleActionError = if (result.resultCode == android.app.Activity.RESULT_CANCELED) {
+                "Google account/consent flow returned no result. Check Google Play services, confirm a Google account is added to Android, then verify the OAuth Android client uses package com.friday.app and this APK's signing SHA-1."
+            } else {
+                "Google authorization returned no result (code ${result.resultCode}). Check Google Play services and OAuth configuration."
+            }
+        }
     }
     val speechRecognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
@@ -221,9 +233,9 @@ fun FridayApp(vm: FridayViewModel) {
                     }
                     state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("GOOGLE PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("GOOGLE ACCOUNT & PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.googleStatus, color = Muted, fontSize = 12.sp)
-                    Text("Google account authorization for read-only Drive, Gmail, Calendar and Contacts. The Android OAuth client must match com.friday.app and this APK signing SHA-1. Tokens are not saved.", color = Muted, fontSize = 10.sp)
+                    Text("Choose your Google account, then approve read-only access to Drive, Gmail, Calendar and Contacts. Tokens stay in memory only. OAuth must match package com.friday.app and this APK signing SHA-1.", color = Muted, fontSize = 10.sp)
                     Button(onClick = {
                         googleActionError = null
                         Identity.getAuthorizationClient(context).authorize(GoogleContextSync.authorizationRequest())
@@ -236,7 +248,7 @@ fun FridayApp(vm: FridayViewModel) {
                                 else googleActionError = "Google returned no access token"
                             }
                             .addOnFailureListener { error -> googleActionError = "Google authorization failed: ${error.message ?: error.javaClass.simpleName}" }
-                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Authorize Google • Read only", color = Night) }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Sign in with Google • Read only", color = Night) }
                     TextButton(onClick = { vm.disconnectGoogle() }) { Text("Delete local Google cache", color = Color(0xFFFF9CA9)) }
                     googleActionError?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
