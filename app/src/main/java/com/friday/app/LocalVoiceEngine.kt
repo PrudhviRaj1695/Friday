@@ -83,7 +83,7 @@ class LocalVoiceEngine(private val context: Context) {
                             check(out.canonicalPath.startsWith(staging.canonicalPath + File.separator)) { "Unsafe archive path" }
                             if (entry.isDirectory) out.mkdirs() else {
                                 out.parentFile?.mkdirs()
-                                tar.copyTo(out.outputStream().buffered())
+                                out.outputStream().buffered().use { output -> tar.copyTo(output) }
                             }
                         }
                     }
