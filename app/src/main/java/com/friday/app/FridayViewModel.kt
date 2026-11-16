@@ -221,7 +221,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         speakSentence("Hello. I am FRIDAY. Voice output is working.")
     }
 
-    fun stopSpeaking() { voiceEngine.stop() }
+    fun stopSpeaking() { voiceEngine.stop(); systemVoice.stop() }
 
     fun syncGoogleContext(accessToken: String) {
         scope.launch {
