@@ -322,7 +322,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             val haystack = (doc.name + " " + doc.content).lowercase()
             doc to terms.count { it in haystack }
         }.filter { it.second > 0 }.sortedByDescending { it.second }.take(3)
-        return ranked.joinToString("\n\n") { (doc, _) ->
+        val selected = if (ranked.isNotEmpty()) ranked else if (
+            listOf("document", "file", "pdf", "contents", "says", "read").any { it in query.lowercase() }
+        ) docs.take(3).map { it to 0 } else emptyList()
+        return selected.joinToString("\n\n") { (doc, _) ->
             "DOCUMENT: ${doc.name}\nPATH: ${doc.location}\nCONTENT EXCERPT:\n${doc.content.take(9000)}"
         }.take(24000)
     }
