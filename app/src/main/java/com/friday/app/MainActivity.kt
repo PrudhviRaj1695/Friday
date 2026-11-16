@@ -183,7 +183,7 @@ fun FridayApp(vm: FridayViewModel) {
                         Text(if (state.busy) "THINKING…" else if (voiceStatus.isNotBlank()) voiceStatus else "Tap to Command",
                             color = Neon, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
                         Spacer(Modifier.height(5.dp))
-                        Text(if (state.systemVoiceReady) "ANDROID VOICE • READY" else "ANDROID VOICE • INITIALIZING",
+                        Text(if (state.voiceModelReady) "KOKORO OFFLINE VOICE • READY" else if (state.systemVoiceReady) "ANDROID FALLBACK VOICE • READY" else "VOICE ENGINE • INITIALIZING",
                             color = Muted, fontSize = 9.sp, letterSpacing = 1.4.sp)
                     }
                 }
@@ -220,7 +220,7 @@ fun FridayApp(vm: FridayViewModel) {
                         Text("Downloading voice model: " + state.voiceDownloadProgress + "%", color = Muted, fontSize = 12.sp)
                     } else if (!state.voiceModelReady) {
                         Button(onClick = { vm.downloadVoiceModel() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
-                            Text("Download natural voice", color = Night)
+                            Text("Download offline Kokoro voice", color = Night)
                         }
                     }
                     if (state.downloading) {
@@ -254,7 +254,7 @@ fun FridayApp(vm: FridayViewModel) {
                     HorizontalDivider(color = Color(0xFF1C354A))
                     TextButton(onClick = { clearMemoryConfirm = true }) { Text("Clear local chat history", color = Color(0xFFFF9CA9)) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Speak replies (Android voice)", color = Color.White, modifier = Modifier.weight(1f))
+                        Text(if (state.voiceModelReady) "Speak replies (downloaded Kokoro voice)" else "Speak replies (Android fallback)", color = Color.White, modifier = Modifier.weight(1f))
                         Switch(checked = state.speakReplies, onCheckedChange = vm::setSpeakReplies)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
