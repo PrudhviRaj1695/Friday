@@ -79,11 +79,13 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         if (voiceEngine.isInstalled()) {
-            _state.update { it.copy(voiceModelReady = true, voiceStatus = "Kokoro natural voice installed") }
+            _state.update { it.copy(voiceModelReady = false, voiceStatus = "Downloaded Kokoro voice found • loading…") }
             voiceScope.launch {
-                runCatching { voiceEngine.initialize() }.onFailure { failure ->
-                    _state.update { current -> current.copy(voiceModelReady = false, voiceStatus = failure.message ?: "Voice initialization failed") }
-                }
+                runCatching { voiceEngine.initialize() }
+                    .onSuccess { _state.update { it.copy(voiceModelReady = true, voiceStatus = "Downloaded Kokoro voice ready • offline") } }
+                    .onFailure { failure ->
+                        _state.update { it.copy(voiceModelReady = false, voiceStatus = "Kokoro load failed: ${failure.message ?: "unknown error"}") }
+                    }
             }
         }
         val model = modelFile()
@@ -195,7 +197,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 _state.update { it.copy(voiceStatus = "Loading natural voice model…") }
                 voiceEngine.initialize()
-                _state.update { it.copy(voiceDownloading = false, voiceModelReady = true, voiceDownloadProgress = 100, voiceStatus = "Kokoro natural voice ready") }
+                _state.update { it.copy(voiceDownloading = false, voiceModelReady = true, voiceDownloadProgress = 100, voiceStatus = "Downloaded Kokoro voice ready • offline") }
             } catch (e: Exception) {
                 _state.update { it.copy(voiceDownloading = false, voiceModelReady = false, voiceStatus = "Voice setup failed", error = e.message ?: "Kokoro setup failed") }
             }
@@ -206,14 +208,19 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         if (!_state.value.speakReplies || text.isBlank()) return
         val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
         if (speechText.isBlank()) return
-        // Android's installed speech engine is the reliable default and needs no
-        // separate 300 MB voice-model download. Kokoro remains an optional fallback.
-        val queued = systemVoice.speak(speechText)
-        if (!queued && _state.value.voiceModelReady) {
+
+        if (_state.value.voiceModelReady) {
             voiceScope.launch {
+                _state.update { it.copy(voiceStatus = "Speaking with downloaded Kokoro voice…") }
                 runCatching { voiceEngine.speak(speechText, speakerId = 0, speed = 1.0f) }
-                    .onFailure { failure -> _state.update { it.copy(voiceStatus = failure.message ?: "Voice playback failed") } }
+                    .onSuccess { _state.update { it.copy(voiceStatus = "Downloaded Kokoro voice ready • offline") } }
+                    .onFailure { failure ->
+                        _state.update { it.copy(voiceStatus = "Kokoro playback failed: \${failure.message ?: "unknown error"}") }
+                    }
             }
+        } else {
+            val queued = systemVoice.speak(speechText)
+            if (!queued) _state.update { it.copy(voiceStatus = "No speech engine available: check Android Text-to-Speech settings") }
         }
     }
 
