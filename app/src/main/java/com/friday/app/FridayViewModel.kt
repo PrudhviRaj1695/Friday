@@ -137,10 +137,6 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val executor = Executors.newSingleThreadExecutor()
     private val dispatcher = executor.asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
-    // Android's installed TTS engine avoids bundled models and native audio runtimes.
-    private val systemVoice = SystemVoiceEngine(app) { ready, message ->
-        _state.update { it.copy(systemVoiceReady = ready, voiceStatus = message) }
-    }
     private val kokoroVoice = KokoroVoiceEngine(app)
     @Volatile private var activeVoiceJob: kotlinx.coroutines.Job? = null
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
@@ -379,7 +375,6 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         activeVoiceJob?.cancel()
         activeVoiceJob = null
         kokoroVoice.stop()
-        systemVoice.stop()
         _state.update { it.copy(voicePlaying = false, voiceStatus = "Voice stopped") }
     }
 
@@ -590,7 +585,6 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         engine = null
     }
     override fun onCleared() {
-        systemVoice.shutdown()
         kokoroVoice.release()
         scope.launch {
             closeCurrent()
