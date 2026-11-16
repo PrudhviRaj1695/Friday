@@ -547,11 +547,20 @@ Last error: ${state.error ?: "none"}
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available on this phone. FRIDAY selects it before the system recognizer." else "On-device speech recognition is not exposed by the installed speech service. Android may use its configured recognition provider.",
                         color = Muted, fontSize = 10.sp
                     )
-                    Text("VOICE OUTPUT • ANDROID SYSTEM TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("VOICE OUTPUT • KOKORO NEURAL TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Kokoro-82M • Sherpa-ONNX • on-device CPU inference • no cloud voice requests", color = Muted, fontSize = 10.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
-                    OutlinedButton(onClick = {
-                        runCatching { context.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
-                    }) { Text("Voice & speech settings", color = Neon) }
+                    if (state.voiceDownloading) {
+                        LinearProgressIndicator(progress = { state.voiceDownloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
+                        Text("Downloading voice model • ${state.voiceDownloadProgress}%", color = Muted, fontSize = 11.sp)
+                    } else if (!state.voiceModelReady) {
+                        Button(onClick = { vm.downloadVoiceModel() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
+                            Text("Download offline neural voice (~330 MB)", color = Night)
+                        }
+                    } else {
+                        Text("Voice: Michael • male American English. Indian-English male voice is not included in this model.", color = Muted, fontSize = 10.sp)
+                        Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test neural voice", color = Night) }
+                    }
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("NOTIFICATIONS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("Local status alerts only • no message, document or personal content is included.", color = Muted, fontSize = 10.sp)
@@ -562,8 +571,6 @@ Last error: ${state.error ?: "none"}
                             runCatching { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }
                         }
                     }) { Text("Manage notification permission", color = Neon) }
-                    Text("Uses the speech engine and voices installed on your phone. No Kokoro download or extra voice model.", color = Muted, fontSize = 10.sp)
-                    Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test Android voice", color = Night) }
                     if (state.downloading) {
                         LinearProgressIndicator(progress = { state.downloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
                         Text("Downloading ${state.downloadProgress}%", color = Muted, fontSize = 12.sp)
