@@ -332,6 +332,7 @@ Chat messages loaded: ${state.messages.size}
                     }
                     Text(state.status, color = Muted, fontSize = 12.sp)
                     Text(state.performanceStatus, color = SoftCyan, fontSize = 10.sp, lineHeight = 15.sp)
+                    OutlinedButton(onClick = { vm.benchmarkSelectedModel() }, enabled = state.modelReady && !state.busy && !state.downloading) { Text("Benchmark selected model", color = Neon) }
                     if (state.downloading) {
                         LinearProgressIndicator(progress = { state.downloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
                         Text("Downloading " + state.downloadProgress + "%", color = Muted, fontSize = 12.sp)
