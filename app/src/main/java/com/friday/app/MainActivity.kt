@@ -470,7 +470,8 @@ Last error: ${state.error ?: "none"}
                     Button(onClick = { vm.scanLocalDocuments() }, enabled = !state.scanningDocuments, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
                         Text(if (state.scanningDocuments) "Scanning…" else "Scan phone documents", color = Night)
                     }
-                    Text(state.documentStatus, color = Muted, fontSize = 11.sp)\n                    Text("Ask naturally in chat: \"Summarize my PDF about X\" or \"What does my project plan say about authentication?\" Answers use the best matching local excerpts.", color = SoftCyan, fontSize = 10.sp)
+                    Text(state.documentStatus, color = Muted, fontSize = 11.sp)
+                    Text("Ask naturally in chat: \"Summarize my PDF about X\" or \"What does my project plan say about authentication?\" Answers use the best matching local excerpts.", color = SoftCyan, fontSize = 10.sp)
                     state.localDocuments.take(20).forEach { doc ->
                         Text("• ${doc.name}  ·  ${if (doc.content.isNotBlank()) "extracted • searchable" else "not extracted • " + doc.mimeType}", color = Color(0xFFD8F7FA), fontSize = 10.sp)
                     }
