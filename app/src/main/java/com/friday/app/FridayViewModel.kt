@@ -451,7 +451,12 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun stopGeneration() {\n        activeGenerationJob?.cancel(CancellationException("Stopped by user"))\n        stopSpeaking()\n    }\n\n    fun setCloudApproval(enabled: Boolean) {
+    fun stopGeneration() {
+        activeGenerationJob?.cancel(CancellationException("Stopped by user"))
+        stopSpeaking()
+    }
+
+    fun setCloudApproval(enabled: Boolean) {
         prefs.edit().putBoolean("cloud_approval", enabled).apply()
         _state.update { it.copy(cloudApprovalEnabled = enabled) }
     }
