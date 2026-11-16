@@ -64,11 +64,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.util.Locale
 
-private val Night = Color(0xFF020B18)
-private val DeepBlue = Color(0xFF06172A)
-private val Neon = Color(0xFF00E5F2)
-private val SoftCyan = Color(0xFF00AFC4)
-private val Muted = Color(0xFF8CA8BC)
+private val Night = Color(0xFF050208)
+private val DeepBlue = Color(0xFF12051B)
+private val Neon = Color(0xFFE04BFF)
+private val SoftCyan = Color(0xFFB64AE8)
+private val Muted = Color(0xFFB9A9C2)
+private val Violet = Color(0xFF8E20B7)
+private val PinkGlow = Color(0xFFFF55D7)
 
 class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
@@ -81,8 +83,8 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(2, 11, 24)
-        window.navigationBarColor = android.graphics.Color.rgb(2, 11, 24)
+        window.statusBarColor = android.graphics.Color.rgb(5, 2, 8)
+        window.navigationBarColor = android.graphics.Color.rgb(5, 2, 8)
         setContent { FridayApp(fridayViewModel) }
     }
 }
@@ -291,10 +293,10 @@ Last error: ${state.error ?: "none"}
         if (state.messages.isNotEmpty()) chatListState.animateScrollToItem(state.messages.lastIndex)
     }
 
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF03172A), Night, Color(0xFF010713))))) {
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF16051D), Night, Color(0xFF000000))))) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(color = if (state.modelReady) Color(0xFF06323B) else Color(0xFF352A21), shape = RoundedCornerShape(30.dp)) {
+                Surface(color = if (state.modelReady) Color(0xFF32103D) else Color(0xFF35202C), shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Violet.copy(alpha = .55f))) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(if (state.modelReady) Neon else Color(0xFFFFB36B)))
                         Spacer(Modifier.width(7.dp))
@@ -302,17 +304,26 @@ Last error: ${state.error ?: "none"}
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                Text("FRIDAY", color = Neon, fontSize = 21.sp, fontWeight = FontWeight.Light, letterSpacing = 5.sp)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("FRIDAY", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 5.sp)
+                    Text("YOUR PRIVATE AI COMPANION", color = Neon, fontSize = 8.sp, letterSpacing = 1.5.sp)
+                }
                 Spacer(Modifier.width(12.dp))
-                Text("DEBUG", color = Muted, fontSize = 10.sp, modifier = Modifier.clickable { debugOpen = true }.padding(4.dp))
-                Text("⋮", color = Muted, fontSize = 24.sp, modifier = Modifier.clickable { setupOpen = true }.padding(horizontal = 4.dp))
+                Text("⋮", color = Color.White, fontSize = 24.sp, modifier = Modifier.clickable { setupOpen = true }.padding(horizontal = 4.dp))
             }
 
-            Row(Modifier.fillMaxWidth().height(112.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.fillMaxWidth().height(188.dp), contentAlignment = Alignment.Center) {
                 FridayOrb(active = state.busy || voiceStatus.isNotBlank())
+                Column(Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (voiceStatus.isNotBlank()) voiceStatus else if (state.busy) "THINKING…" else "AT YOUR SERVICE", color = Neon, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
+                    Text(if (state.modelReady) "Ready when you are" else "Your local intelligence awaits", color = Muted, fontSize = 11.sp)
+                }
             }
-
-            Text("CONVERSATION", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+            Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("YOUR CONVERSATION", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
+                Spacer(Modifier.weight(1f))
+                Text("PRIVATE • ON-DEVICE", color = Neon, fontSize = 8.sp, letterSpacing = 1.sp)
+            }
             LazyColumn(
                 state = chatListState,
                 modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp),
@@ -328,17 +339,18 @@ Last error: ${state.error ?: "none"}
                     val isUser = message.role == "user"
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
                         Surface(
-                            color = if (isUser) Color(0xFF07566A) else Color(0xFF0B1C2E),
-                            shape = RoundedCornerShape(16.dp),
+                            color = if (isUser) Color(0xFF49135B) else Color(0xFF17101B),
+                            shape = RoundedCornerShape(20.dp),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, (if (isUser) PinkGlow else Violet).copy(alpha = .30f)),
                             modifier = Modifier.widthIn(max = 320.dp)
                         ) {
                             Text(
                                 text = message.text
                                     .replace("**", "")
                                     .ifBlank { if (state.busy && !isUser) "FRIDAY is thinking…" else " " },
-                                color = Color(0xFFE3F8FA),
+                                color = Color(0xFFF8EFFB),
                                 fontSize = 14.sp,
-                                lineHeight = 20.sp,
+                                lineHeight = 21.sp,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
                             )
                         }
@@ -347,7 +359,7 @@ Last error: ${state.error ?: "none"}
             }
 
             state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp, modifier = Modifier.padding(vertical = 3.dp)) }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).background(Color(0xFF130B17), RoundedCornerShape(28.dp)).border(1.dp, Violet.copy(alpha = .55f), RoundedCornerShape(28.dp)).padding(horizontal = 6.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = {
                     if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                         (context as? android.app.Activity)?.startActivityForResult(Intent(context, VisionCameraActivity::class.java), 7401)
@@ -365,14 +377,20 @@ Last error: ${state.error ?: "none"}
                     placeholder = { Text("Message FRIDAY…", fontSize = 13.sp) },
                     maxLines = 4,
                     enabled = state.modelReady && !state.busy,
-                    shape = RoundedCornerShape(18.dp)
+                    shape = RoundedCornerShape(22.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = Color.White, unfocusedTextColor = Color.White,
+                        focusedBorderColor = Color.Transparent, unfocusedBorderColor = Color.Transparent,
+                        focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent,
+                        focusedPlaceholderColor = Muted, unfocusedPlaceholderColor = Muted
+                    )
                 )
                 Spacer(Modifier.width(6.dp))
                 if (state.busy) {
                     Button(
                         onClick = { vm.stopGeneration() },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF8E2638),
+                            containerColor = Color(0xFF8E205F),
                             contentColor = Color.White
                         ),
                         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
@@ -383,14 +401,15 @@ Last error: ${state.error ?: "none"}
                     Button(
                         onClick = { val text = input.trim(); if (text.isNotEmpty()) vm.send(text); input = "" },
                         enabled = input.isNotBlank() && state.modelReady,
-                        colors = ButtonDefaults.buttonColors(containerColor = Neon),
+                        colors = ButtonDefaults.buttonColors(containerColor = Violet, disabledContainerColor = Color(0xFF39213F)),
+                        shape = RoundedCornerShape(24.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-                    ) { Text("SEND", color = Night, fontSize = 11.sp) }
+                    ) { Text("SEND", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(if (voiceStatus.isNotBlank()) voiceStatus else if (state.busy) "GENERATING RESPONSE…" else "LOCAL CHAT • CLOUD OFF", color = Muted, fontSize = 9.sp)
-                Text("SETUP", color = Neon, fontSize = 10.sp, modifier = Modifier.clickable { setupOpen = true }.padding(8.dp))
+                Text("SETTINGS", color = Neon, fontSize = 10.sp, modifier = Modifier.clickable { setupOpen = true }.padding(8.dp))
             }
         }
     }
@@ -697,22 +716,22 @@ private fun FridayOrb(active: Boolean) {
     val rotation by transition.animateFloat(initialValue = 0f, targetValue = 360f,
         animationSpec = infiniteRepeatable(tween(18000), RepeatMode.Restart), label = "rotation")
 
-    Canvas(Modifier.fillMaxWidth().aspectRatio(1f).padding(4.dp)) {
+    Canvas(Modifier.fillMaxHeight().aspectRatio(1f).padding(4.dp)) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * .31f * pulse
-        drawCircle(Brush.radialGradient(listOf(Color(0x5530EFFF), Color(0x2222CFEA), Color.Transparent), center, radius * 2.35f), radius * 2.35f, center)
-        drawCircle(Brush.radialGradient(listOf(Color(0xAA00DCEB), Color(0x6620B6C7), Color(0x22004C65), Color.Transparent), center, radius * 1.9f), radius * 1.9f, center)
-        drawCircle(Color(0x2200EAF5), radius * 1.42f, center, style = Stroke(width = 1.2.dp.toPx()))
-        drawCircle(Color(0x5535E9F2), radius * 1.08f, center, style = Stroke(width = 1.dp.toPx()))
-        drawCircle(Brush.radialGradient(listOf(Color(0xFF35F5F4), Color(0xFF0796A9), Color(0xFF031B30)), center, radius), radius, center)
-        drawCircle(Color(0x5535F5FF), radius * .58f, center, style = Stroke(width = 1.5.dp.toPx()))
-        drawCircle(Color(0x4400EAF5), radius * .16f, Offset(center.x - radius * .24f, center.y - radius * .48f))
+        drawCircle(Brush.radialGradient(listOf(Color(0x66E34BFF), Color(0x332C0A42), Color.Transparent), center, radius * 2.35f), radius * 2.35f, center)
+        drawCircle(Brush.radialGradient(listOf(Color(0xAAE65BFF), Color(0x665E168C), Color(0x2224003A), Color.Transparent), center, radius * 1.9f), radius * 1.9f, center)
+        drawCircle(Color(0x44F04DFF), radius * 1.42f, center, style = Stroke(width = 1.2.dp.toPx()))
+        drawCircle(Color(0x77D65BFF), radius * 1.08f, center, style = Stroke(width = 1.dp.toPx()))
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFFF9BEA), Color(0xFF9C2BC7), Color(0xFF180522)), center, radius), radius, center)
+        drawCircle(Color(0x88F7A1FF), radius * .58f, center, style = Stroke(width = 1.5.dp.toPx()))
+        drawCircle(Color(0x66FFFFFF), radius * .16f, Offset(center.x - radius * .24f, center.y - radius * .48f))
         val orbit = radius * 1.48f
         for (i in 0 until 9) {
             val angle = Math.toRadians((rotation + i * 40.0))
             val x = center.x + kotlin.math.cos(angle).toFloat() * orbit
             val y = center.y + kotlin.math.sin(angle).toFloat() * orbit
-            val dotColor = if (i % 3 == 0) Color(0xFFB83FAF) else Neon
+            val dotColor = if (i % 3 == 0) PinkGlow else Neon
             drawCircle(dotColor.copy(alpha = if (active) .95f else .55f), if (i % 3 == 0) 5.dp.toPx() else 3.dp.toPx(), Offset(x, y))
             drawCircle(dotColor.copy(alpha = .14f), 10.dp.toPx(), Offset(x, y))
         }
