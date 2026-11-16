@@ -39,9 +39,23 @@ object LocalDocumentRetriever {
         val queryTokens = tokens(query).filter { it !in stopWords }.distinct()
         if (queryTokens.isEmpty()) return emptyList()
 
+        // Identity-number questions must retrieve the exact identifier type.
+        // Never let a generic "number" match substitute Aadhaar for PAN (or vice versa).
+        val requestedIdentifier = when {
+            Regex("\\bpan\\b|permanent\\s+account\\s+(number|no)\\b", RegexOption.IGNORE_CASE).containsMatchIn(query) -> "pan"
+            Regex("\\baadhaar\\b|\\baadhar\\b|\\buidai\\b", RegexOption.IGNORE_CASE).containsMatchIn(query) -> "aadhaar"
+            else -> null
+        }
         val chunks = documents.asSequence()
             .filter { it.content.isNotBlank() }
             .flatMap { split(it).asSequence() }
+            .filter { chunk ->
+                when (requestedIdentifier) {
+                    "pan" -> Regex("\\bpan\\b|permanent\\s+account\\s+(number|no)\\b", RegexOption.IGNORE_CASE).containsMatchIn(chunk.text)
+                    "aadhaar" -> Regex("\\baadhaar\\b|\\baadhar\\b|\\buidai\\b", RegexOption.IGNORE_CASE).containsMatchIn(chunk.text)
+                    else -> true
+                }
+            }
             .take(12_000)
             .toList()
         if (chunks.isEmpty()) return emptyList()
