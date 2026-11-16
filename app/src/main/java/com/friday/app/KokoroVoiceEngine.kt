@@ -40,7 +40,7 @@ class KokoroVoiceEngine(private val context: Context) {
         return File(dir, "model.int8.onnx").length() > 50_000_000L &&
             File(dir, "voices.bin").length() > 1_000_000L &&
             File(dir, "tokens.txt").exists() &&
-            File(dir, "espeak-ng-data").isDirectory && File(dir, "lexicon-us-en.txt").isFile
+            File(dir, "espeak-ng-data").isDirectory && File(dir, "lexicon-en-us.txt").length() > 1_000_000L
     }
 
     suspend fun download(onProgress: (Int) -> Unit): Boolean = withContext(Dispatchers.IO) {
@@ -149,9 +149,9 @@ class KokoroVoiceEngine(private val context: Context) {
             )
             tts = OfflineTts(assetManager = null, config = config)
             true
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             release()
-            false
+            throw IllegalStateException("Kokoro initialization failed: " + e.javaClass.simpleName + ": " + (e.message ?: "no details"), e)
         }
     }
 
