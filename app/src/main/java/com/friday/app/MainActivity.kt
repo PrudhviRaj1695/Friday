@@ -520,6 +520,13 @@ Last error: ${state.error ?: "none"}
                     OutlinedTextField(value = profileDraft.interests, onValueChange = { profileDraft = profileDraft.copy(interests = it) }, label = { Text("Interests and projects") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                     OutlinedTextField(value = profileDraft.customInstructions, onValueChange = { profileDraft = profileDraft.copy(customInstructions = it) }, label = { Text("Custom instructions") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                     OutlinedTextField(value = profileDraft.learnedNotes, onValueChange = { profileDraft = profileDraft.copy(learnedNotes = it) }, label = { Text("Notes FRIDAY may remember") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    Text("FINE-TUNING DATASET • EXPERIMENTAL", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("Add approved training examples as JSONL, one example per line. This prepares a dataset for compatible fine-tuning tools; it does not train the phone model yet.", color = Muted, fontSize = 10.sp)
+                    OutlinedTextField(value = profileDraft.fineTuneExamples, onValueChange = { profileDraft = profileDraft.copy(fineTuneExamples = it) }, label = { Text("Approved examples (JSONL)") }, modifier = Modifier.fillMaxWidth(), minLines = 4, maxLines = 8)
+                    OutlinedButton(onClick = {
+                        val share = Intent(Intent.ACTION_SEND).apply { type = "application/x-ndjson"; putExtra(Intent.EXTRA_SUBJECT, "FRIDAY fine-tuning dataset"); putExtra(Intent.EXTRA_TEXT, profileDraft.fineTuneExamples) }
+                        context.startActivity(Intent.createChooser(share, "Export training examples"))
+                    }, enabled = profileDraft.fineTuneExamples.isNotBlank()) { Text("Export training dataset", color = Neon) }
                 }
             },
             confirmButton = { TextButton(onClick = { vm.savePersonalProfile(profileDraft); profileOpen = false }) { Text("SAVE PROFILE", color = Neon) } },
