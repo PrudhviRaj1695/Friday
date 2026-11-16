@@ -39,6 +39,12 @@ jobs:
         with:
           gradle-version: '8.9'
 
+      - name: Download Sherpa ONNX Android runtime
+        run: |
+          mkdir -p app/libs
+          curl -L --fail --retry 3 "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-2.0.1.aar" -o app/libs/sherpa-onnx-2.0.1.aar
+          echo "Sherpa ONNX AAR: $(du -h app/libs/sherpa-onnx-2.0.1.aar)"
+
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
       - name: Print APK signing SHA-1 for Google OAuth setup
