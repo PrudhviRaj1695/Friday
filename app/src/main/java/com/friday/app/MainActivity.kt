@@ -85,6 +85,8 @@ fun FridayApp(vm: FridayViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var setupOpen by remember { mutableStateOf(false) }
+    var profileOpen by remember { mutableStateOf(false) }
+    var profileDraft by remember { mutableStateOf(PersonalProfile()) }
     var textOpen by remember { mutableStateOf(false) }
     var debugOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
@@ -391,6 +393,11 @@ Last error: ${state.error ?: "none"}
             title = { Text("FRIDAY setup", color = Color.White) },
             text = {
                 Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("PERSONAL INTELLIGENCE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Encrypted on-device profile • learns only what you choose to save", color = Muted, fontSize = 10.sp)
+                    OutlinedButton(onClick = { profileDraft = state.personalProfile; profileOpen = true }) { Text("Customize how FRIDAY knows and assists me", color = Neon) }
+                    Text("Your profile shapes tone, answer structure, goals and working context. It does not retrain model weights.", color = Muted, fontSize = 10.sp)
+                    HorizontalDivider(color = Color(0xFF1C354A))
                     Text("LOCAL MODEL LIBRARY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                     val selectedModel = FridayViewModel.MODEL_OPTIONS.firstOrNull { it.id == state.selectedModelId } ?: FridayViewModel.MODEL_OPTIONS.first()
                     Text(selectedModel.name + " • " + selectedModel.expectedSize, color = Color.White, fontSize = 14.sp)
@@ -496,6 +503,27 @@ Last error: ${state.error ?: "none"}
                 }
             },
             confirmButton = { TextButton(onClick = { setupOpen = false }) { Text("CLOSE", color = Neon) } }
+        )
+    }
+
+    if (profileOpen) {
+        AlertDialog(onDismissRequest = { profileOpen = false }, containerColor = Color(0xFF0B1C2E),
+            title = { Text("Personal Intelligence", color = Color.White) },
+            text = {
+                Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Encrypted with Android Keystore and stored in FRIDAY private app data.", color = Muted, fontSize = 11.sp)
+                    OutlinedTextField(value = profileDraft.displayName, onValueChange = { profileDraft = profileDraft.copy(displayName = it) }, label = { Text("What should FRIDAY call me?") }, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = profileDraft.communicationStyle, onValueChange = { profileDraft = profileDraft.copy(communicationStyle = it) }, label = { Text("Communication style") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    OutlinedTextField(value = profileDraft.responsePreferences, onValueChange = { profileDraft = profileDraft.copy(responsePreferences = it) }, label = { Text("How should answers be structured?") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    OutlinedTextField(value = profileDraft.goals, onValueChange = { profileDraft = profileDraft.copy(goals = it) }, label = { Text("My goals") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    OutlinedTextField(value = profileDraft.workContext, onValueChange = { profileDraft = profileDraft.copy(workContext = it) }, label = { Text("Work and technical context") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    OutlinedTextField(value = profileDraft.interests, onValueChange = { profileDraft = profileDraft.copy(interests = it) }, label = { Text("Interests and projects") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    OutlinedTextField(value = profileDraft.customInstructions, onValueChange = { profileDraft = profileDraft.copy(customInstructions = it) }, label = { Text("Custom instructions") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                    OutlinedTextField(value = profileDraft.learnedNotes, onValueChange = { profileDraft = profileDraft.copy(learnedNotes = it) }, label = { Text("Notes FRIDAY may remember") }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                }
+            },
+            confirmButton = { TextButton(onClick = { vm.savePersonalProfile(profileDraft); profileOpen = false }) { Text("SAVE PROFILE", color = Neon) } },
+            dismissButton = { Row { TextButton(onClick = { vm.clearPersonalProfile(); profileDraft = PersonalProfile(); profileOpen = false }) { Text("ERASE", color = Color(0xFFFF9CA9)) }; TextButton(onClick = { profileOpen = false }) { Text("CANCEL", color = Muted) } } }
         )
     }
 
