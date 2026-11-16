@@ -43,6 +43,7 @@ data class FridayState(
     val voiceDownloadProgress: Int = 0,
     val voiceStatus: String = "Natural voice model not installed",
     val googleStatus: String = "Google account not connected",
+    val googleConnected: Boolean = false,
     val performanceStatus: String = "No benchmark yet",
     val promptProcessingStatus: String = "Not measured",
     val generationStatus: String = "Not measured"
@@ -79,7 +80,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         messages = store.readRecent(100),
         cloudApprovalEnabled = prefs.getBoolean("cloud_approval", false),
         speakReplies = prefs.getBoolean("speak_replies", true),
-        googleStatus = if (googleContext.isNotBlank()) "Google context available locally" else "Google account not connected"
+        googleStatus = if (googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false)) "Google context synced locally" else "Google account not connected",
+        googleConnected = googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false)
     ))
     val state: StateFlow<FridayState> = _state.asStateFlow()
     private var engine: Engine? = null
@@ -249,12 +251,12 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 googleContext = summary
                 val failedSections = summary.lineSequence().filter { "unavailable:" in it.lowercase() }.toList()
                 if (failedSections.isEmpty()) {
-                    _state.update { it.copy(googleStatus = "Google context synced locally") }
+                    _state.update { it.copy(googleStatus = "Google context synced locally", googleConnected = true) }
                 } else {
-                    _state.update { it.copy(googleStatus = "Google connected • some data sources failed (${failedSections.size})", error = failedSections.joinToString("\n").take(900)) }
+                    _state.update { it.copy(googleStatus = "Google connected • some data sources failed (${failedSections.size})", googleConnected = true, error = failedSections.joinToString("\n").take(900)) }
                 }
             } catch (e: Exception) {
-                _state.update { it.copy(googleStatus = e.message ?: "Google sync failed") }
+                _state.update { it.copy(googleStatus = e.message ?: "Google sync failed", googleConnected = false) }
             }
         }
     }
@@ -263,7 +265,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         googleContext = ""
         getApplication<Application>().deleteFile("google_context.txt")
         getApplication<Application>().getSharedPreferences("friday_google", 0).edit().clear().apply()
-        _state.update { it.copy(googleStatus = "Google context removed from this device") }
+        _state.update { it.copy(googleStatus = "Google context removed from this device", googleConnected = false) }
     }
 
     private fun contextFor(query: String): String {
@@ -335,7 +337,14 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(busy = false) }
                 throw e
             } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "Local model inference failed") }
+                val detail = e.message ?: e.javaClass.simpleName
+                _state.update { current ->
+                    val updated = current.messages.toMutableList()
+                    if (updated.isNotEmpty() && updated.last().role == "assistant" && updated.last().text.isBlank()) {
+                        updated[updated.lastIndex] = ChatLine("assistant", "I couldn't complete that response.\n\nError: $detail")
+                    }
+                    current.copy(busy = false, messages = updated.takeLast(100), error = detail)
+                }
             }
         }
     }
