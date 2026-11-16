@@ -11,47 +11,102 @@ data class RetrievedDocumentChunk(
     val score: Double
 )
 
+/**
+ * Lightweight, fully on-device BM25 retrieval.
+ *
+ * The index is rebuilt from the currently scanned document snapshot. It does not
+ * upload documents or use a hosted embedding service.
+ */
 object LocalDocumentRetriever {
-    private val stopWords = setOf("the","and","for","that","with","from","this","what","when","where","which","about","your","you","are","was","were","have","has","had","does","did","can","could","would","should","into","onto","how","why","who","whom","their","there","them","then","than","but","not","all","any","our","out")
+    private val stopWords = setOf(
+        "the", "and", "for", "that", "with", "from", "this", "what", "when",
+        "where", "which", "about", "your", "you", "are", "was", "were", "have",
+        "has", "had", "does", "did", "can", "could", "would", "should", "into",
+        "onto", "how", "why", "who", "whom", "their", "there", "them", "then",
+        "than", "but", "not", "all", "any", "our", "out", "please", "tell",
+        "me", "give", "using", "based", "available", "data"
+    )
+
+    private data class Chunk(
+        val documentName: String,
+        val location: String,
+        val page: Int?,
+        val text: String
+    )
 
     fun retrieve(query: String, documents: List<LocalDocument>, limit: Int = 5): List<RetrievedDocumentChunk> {
-        val terms = tokens(query).filter { it !in stopWords }.distinct()
-        if (terms.isEmpty()) return emptyList()
-        val chunks = documents.filter { it.content.isNotBlank() }.flatMap { doc -> split(doc) }
+        if (limit <= 0 || query.isBlank()) return emptyList()
+        val queryTokens = tokens(query).filter { it !in stopWords }.distinct()
+        if (queryTokens.isEmpty()) return emptyList()
+
+        val chunks = documents.asSequence()
+            .filter { it.content.isNotBlank() }
+            .flatMap { split(it).asSequence() }
+            .take(12_000)
+            .toList()
         if (chunks.isEmpty()) return emptyList()
+
         val tokenized = chunks.map { tokens(it.text) }
-        val df = terms.associateWith { term -> tokenized.count { term in it } }
-        val avgLength = tokenized.map { it.size }.average().coerceAtLeast(1.0)
-        return chunks.mapIndexedNotNull { index, chunk ->
+        val avgLength = tokenized.sumOf { it.size }.toDouble() / tokenized.size
+        val documentFrequency = queryTokens.associateWith { term -> tokenized.count { term in it } }
+        val queryPhrase = normalize(query)
+        val scored = chunks.mapIndexedNotNull { index, chunk ->
             val words = tokenized[index]
+            if (words.isEmpty()) return@mapIndexedNotNull null
             var score = 0.0
-            terms.forEach { term ->
+            queryTokens.forEach { term ->
                 val tf = words.count { it == term }
                 if (tf > 0) {
-                    val idf = ln(1.0 + (chunks.size - (df[term] ?: 0) + 0.5) / ((df[term] ?: 0) + 0.5))
-                    val denominator = tf + 1.2 * (1.0 - 0.75 + 0.75 * words.size / avgLength)
+                    val df = documentFrequency[term] ?: 0
+                    val idf = ln(1.0 + (chunks.size - df + 0.5) / (df + 0.5))
+                    val denominator = tf + 1.2 * (1.0 - 0.75 + 0.75 * words.size / avgLength.coerceAtLeast(1.0))
                     score += idf * (tf * 2.2 / denominator)
                 }
             }
-            val titleTerms = tokens(chunk.documentName).toSet()
-            score += terms.count { it in titleTerms } * 1.5
-            if (score > 0.0) RetrievedDocumentChunk(chunk.documentName, chunk.location, chunk.page, chunk.text, score) else null
-        }.sortedByDescending { it.score }.distinctBy { it.documentName + "|" + it.page + "|" + it.text.take(100) }.take(limit)
+            val titleTokens = tokens(chunk.documentName).toSet()
+            score += queryTokens.count { it in titleTokens } * 1.8
+            val normalizedChunk = normalize(chunk.text)
+            if (queryPhrase.length >= 8 && normalizedChunk.contains(queryPhrase)) score += 3.0
+            // Reward matching adjacent query terms without requiring the whole query verbatim.
+            val bigrams = queryTokens.zipWithNext()
+            score += bigrams.count { (a, b) -> normalizedChunk.contains("$a $b") } * 0.7
+            if (score > 0.05) RetrievedDocumentChunk(
+                chunk.documentName, chunk.location, chunk.page, chunk.text, score
+            ) else null
+        }.sortedByDescending { it.score }
+
+        // Keep results useful: avoid filling the entire context with adjacent chunks
+        // from one long document when other relevant files exist.
+        val selected = mutableListOf<RetrievedDocumentChunk>()
+        val perDocument = mutableMapOf<String, Int>()
+        val seen = mutableSetOf<String>()
+        for (item in scored) {
+            val key = item.documentName.lowercase(Locale.ROOT)
+            val signature = key + "|" + item.page + "|" + item.text.take(120)
+            if (!seen.add(signature)) continue
+            if ((perDocument[key] ?: 0) >= 2) continue
+            selected += item
+            perDocument[key] = (perDocument[key] ?: 0) + 1
+            if (selected.size >= limit) break
+        }
+        return selected
     }
 
     fun formatContext(results: List<RetrievedDocumentChunk>, maxChars: Int = 10_000): String {
-        if (results.isEmpty()) return ""
+        if (results.isEmpty() || maxChars <= 0) return ""
         return buildString {
             results.forEachIndexed { i, item ->
                 val source = if (item.page != null) "${item.documentName}, page ${item.page}" else item.documentName
-                append("[SOURCE ${i + 1}: ").append(source).append("]\n")
-                append(item.text).append("\n\n")
-                if (length >= maxChars) return@buildString
+                val block = "[SOURCE ${i + 1}: $source]\n${item.text}\n\n"
+                if (length + block.length > maxChars) {
+                    val remaining = maxChars - length
+                    if (remaining > 80) append(block.take(remaining))
+                    return@buildString
+                }
+                append(block)
             }
-        }.take(maxChars)
+        }
     }
-
-    private data class Chunk(val documentName: String, val location: String, val page: Int?, val text: String)
 
     private fun split(doc: LocalDocument): List<Chunk> {
         val text = doc.content
@@ -70,8 +125,8 @@ object LocalDocumentRetriever {
         val clean = text.replace(Regex("\\s+"), " ").trim()
         if (clean.isBlank()) return emptyList()
         val result = mutableListOf<Chunk>()
-        val size = 1100
-        val overlap = 180
+        val size = 900
+        val overlap = 140
         var start = 0
         while (start < clean.length) {
             var end = (start + size).coerceAtMost(clean.length)
@@ -86,6 +141,9 @@ object LocalDocumentRetriever {
         return result
     }
 
-    private fun tokens(text: String): List<String> = text.lowercase(Locale.ROOT)
-        .split(Regex("[^\\p{L}\\p{N}]+")).filter { it.length >= 2 }
+    private fun normalize(text: String): String =
+        text.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+
+    private fun tokens(text: String): List<String> =
+        text.lowercase(Locale.ROOT).split(Regex("[^\\p{L}\\p{N}]+")).filter { it.length >= 2 }
 }
