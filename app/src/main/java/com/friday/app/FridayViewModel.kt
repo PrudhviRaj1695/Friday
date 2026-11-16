@@ -52,7 +52,8 @@ data class FridayState(
     val generationStatus: String = "Not measured",
     val localDocuments: List<LocalDocument> = emptyList(),
     val scanningDocuments: Boolean = false,
-    val documentStatus: String = "Documents not scanned",\n    val personalProfile: PersonalProfile = PersonalProfile()
+    val documentStatus: String = "Documents not scanned",
+    val personalProfile: PersonalProfile = PersonalProfile()
 )
 
 class FridayViewModel(app: Application) : AndroidViewModel(app) {
@@ -67,7 +68,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         private const val MAX_HISTORY_CHARS = 900
         private const val MAX_USER_PROMPT_CHARS = 12000
     }
-    private val store = LocalChatStore(app)\n    private val personalMemory = PersonalMemoryStore(app)
+    private val store = LocalChatStore(app)
+    private val personalMemory = PersonalMemoryStore(app)
     private val prefs = app.getSharedPreferences("friday_settings", 0)
     private val executor = Executors.newSingleThreadExecutor()
     private val dispatcher = executor.asCoroutineDispatcher()
@@ -89,12 +91,31 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private var engine: Engine? = null
     private var conversation: Conversation? = null
 
-    private fun personalizedSystemPrompt(): String {\n        val p = _state.value.personalProfile\n        val details = listOf("Communication style: " + p.communicationStyle, "Response preferences: " + p.responsePreferences, "Goals: " + p.goals, "Work context: " + p.workContext, "Interests: " + p.interests, "Custom instructions: " + p.customInstructions, "User-approved notes: " + p.learnedNotes).filter { it.substringAfter(": ").isNotBlank() }\n        return SYSTEM_PROMPT + if (details.isEmpty()) "" else "
+    private fun personalizedSystemPrompt(): String {
+        val p = _state.value.personalProfile
+        val details = listOf(
+            "Communication style: " + p.communicationStyle,
+            "Response preferences: " + p.responsePreferences,
+            "Goals: " + p.goals,
+            "Work context: " + p.workContext,
+            "Interests: " + p.interests,
+            "Custom instructions: " + p.customInstructions,
+            "User-approved notes: " + p.learnedNotes
+        ).filter { it.substringAfter(": ").isNotBlank() }
+        return SYSTEM_PROMPT + if (details.isEmpty()) "" else "\\n\\nPersonalization profile (user-controlled; follow when relevant):\\n" + details.joinToString("\\n")
+    }
 
-Personalization profile (user-controlled; follow when relevant):
-" + details.joinToString("
-")\n    }\n\n    fun savePersonalProfile(profile: PersonalProfile) {\n        personalMemory.save(profile)\n        _state.update { it.copy(personalProfile = profile) }\n        if (_state.value.modelReady && !_state.value.busy) scope.launch { rebuildConversationFromRecentHistory() }\n    }\n\n    fun clearPersonalProfile() {\n        personalMemory.clear()\n        _state.update { it.copy(personalProfile = PersonalProfile()) }\n        if (_state.value.modelReady && !_state.value.busy) scope.launch { rebuildConversationFromRecentHistory() }\n    }
+    fun savePersonalProfile(profile: PersonalProfile) {
+        personalMemory.save(profile)
+        _state.update { it.copy(personalProfile = profile) }
+        if (_state.value.modelReady && !_state.value.busy) scope.launch { rebuildConversationFromRecentHistory() }
+    }
 
+    fun clearPersonalProfile() {
+        personalMemory.clear()
+        _state.update { it.copy(personalProfile = PersonalProfile()) }
+        if (_state.value.modelReady && !_state.value.busy) scope.launch { rebuildConversationFromRecentHistory() }
+    }
     init {
         val selectedId = prefs.getString("selected_model_id", "qwen3-06") ?: "qwen3-06"
         val option = MODEL_OPTIONS.firstOrNull { it.id == selectedId } ?: MODEL_OPTIONS.first()
