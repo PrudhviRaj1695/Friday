@@ -59,7 +59,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
         val MODEL_OPTIONS = listOf(
             LocalModelOption("qwen3-06", "Qwen3 0.6B", "Fast, compact everyday assistant • current default", "Qwen3-0.6B.litertlm", "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm", 600_000_000L, 630_000_000L, "614 MB", "Apache 2.0", "c5f39b4191926786c3e6668b62af4d6eb15248dfc7a5348252a9b406f33f2108"),
-            LocalModelOption("lfm25-12", "LFM2.5 1.2B Instruct • INT4 GPU", "Larger instruction model • 736 MB • GPU artifact", "LFM2.5-1.2B-Instruct_int4_gpu.litertlm", "https://huggingface.co/litert-community/LFM2.5-1.2B-Instruct/resolve/b830c10c762dcc56e013a1ee25bef8bf6fa0dc1d/LFM2.5-1.2B-Instruct_int4_gpu.litertlm", 700_000_000L, 780_000_000L, "736 MB", "LFM Open License 1.0", "96041e6c72b1d2e9b73a122870606bbf18a3819bf14c43c3f2b74685ed62c24d"),
+            LocalModelOption("lfm25-12", "LFM2.5 1.2B Instruct • INT4 GPU", "Larger instruction model • 736 MB • GPU artifact", "LFM2.5-1.2B-Instruct_int4_gpu.litertlm", "https://huggingface.co/litert-community/LFM2.5-1.2B-Instruct/resolve/b830c10c762dcc56e013a1ee25bef8bf6fa0dc1d/LFM2.5-1.2B-Instruct_int4_gpu.litertlm", 700_000_000L, 780_000_000L, "736 MB", "LFM Open License 1.0"),
             LocalModelOption("qwen25-15", "Qwen2.5 1.5B Instruct • INT8", "Quality-oriented option • about 1.6 GB • higher memory use", "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm", "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm", 1_450_000_000L, 1_750_000_000L, "1.6 GB", "Apache 2.0")
         )
         private const val SYSTEM_PROMPT = "You are FRIDAY, a private personal AI assistant. Be practical, accurate, calm and concise. Do not claim you performed actions you did not perform. You run locally on the user's phone."
@@ -210,6 +210,29 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun benchmarkSelectedModel() {
+        if (_state.value.busy || !_state.value.modelReady) return
+        scope.launch {
+            _state.update { it.copy(busy = true, performanceStatus = "Running fixed local benchmark…", error = null) }
+            val started = android.os.SystemClock.elapsedRealtime()
+            var firstToken: Long? = null
+            val output = StringBuilder()
+            try {
+                checkNotNull(conversation).sendMessageAsync("Explain in one concise sentence why local AI models need memory.").collect { chunk ->
+                    if (firstToken == null) firstToken = android.os.SystemClock.elapsedRealtime() - started
+                    output.append(chunk.toString())
+                }
+                val total = (android.os.SystemClock.elapsedRealtime() - started).coerceAtLeast(1)
+                val first = firstToken ?: total
+                val generation = (total - first).coerceAtLeast(0)
+                val rate = "%.1f".format(java.util.Locale.US, output.length * 1000.0 / total)
+                _state.update { it.copy(busy = false, promptProcessingStatus = "Benchmark TTFT (runtime prefill + first token): " + first + "ms", generationStatus = "Benchmark generation after first token: " + generation + "ms", performanceStatus = "Benchmark • " + total + "ms total • " + rate + " chars/sec") }
+                rebuildConversationFromRecentHistory()
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = "Benchmark failed: " + (e.message ?: e.javaClass.simpleName)) }
+            }
+        }
+    }
     private fun playVoice(text: String) {
         val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
         if (speechText.isBlank()) return
