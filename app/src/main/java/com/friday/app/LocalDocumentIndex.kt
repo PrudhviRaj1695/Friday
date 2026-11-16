@@ -102,7 +102,7 @@ object LocalDocumentIndex {
                                     finally { recognizer.close(); bitmap.recycle() }
                             }
                         }
-                        append("\\n[PAGE ").append(page).append("]\\n").append(pageText).append('\\n')
+                        append('\n').append("[PAGE ").append(page).append("]\n").append(pageText).append('\n')
                         if (length >= MAX_EXTRACTED_CHARS) break
                     }
                 }
