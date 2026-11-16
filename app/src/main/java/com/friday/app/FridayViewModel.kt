@@ -103,6 +103,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         return File(dir, option.fileName)
     }
 
+    fun isModelInstalled(modelId: String): Boolean { val option = MODEL_OPTIONS.firstOrNull { it.id == modelId } ?: return false; val file = modelFile(option); return file.exists() && file.length() in option.minBytes..option.maxBytes }
+
     fun selectModel(modelId: String) {
         if (_state.value.busy || _state.value.downloading) return
         val option = MODEL_OPTIONS.firstOrNull { it.id == modelId } ?: return
@@ -122,7 +124,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 withContext(Dispatchers.IO) {
                     val target = modelFile(option)
                     val temp = File(target.parentFile, option.fileName + ".part")
-                    val connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
+                    val connection = (URL(option.downloadUrl).openConnection() as HttpURLConnection).apply {
                         connectTimeout = 20_000
                         readTimeout = 120_000
                         instanceFollowRedirects = true
@@ -133,9 +135,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         val code = connection.responseCode
                         check(code in 200..299) { "Model download failed with HTTP $code" }
                         val total = connection.contentLengthLong
-                        check(total in MODEL_MIN_SIZE_BYTES..MODEL_MAX_SIZE_BYTES) {
-                            "Unexpected model size: " + total + " bytes. Expected a LiteRT model between 500 MB and 700 MB."
+                        check(total in option.minBytes..option.maxBytes) {
+                            "Unexpected " + option.name + " size: " + total + " bytes (expected approximately " + option.expectedSize + ")."
                         }
+                        val digest = if (option.sha256 != null) java.security.MessageDigest.getInstance("SHA-256") else null
                         connection.inputStream.use { input ->
                             temp.outputStream().buffered(1024 * 1024).use { output ->
                                 val buffer = ByteArray(1024 * 1024)
@@ -144,6 +147,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                                     val count = input.read(buffer)
                                     if (count < 0) break
                                     output.write(buffer, 0, count)
+                                    digest?.update(buffer, 0, count)
                                     copied += count
                                     val percent = ((copied * 100) / total).toInt().coerceIn(0, 100)
                                     _state.update { it.copy(downloadProgress = percent) }
@@ -151,6 +155,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                             }
                         }
                         check(temp.length() == total) { "Downloaded file size does not match the server-reported size." }
+                        option.sha256?.let { expected ->
+                            val actual = digest!!.digest().joinToString("") { "%02x".format(it) }
+                            check(actual.equals(expected, ignoreCase = true)) { "Model SHA-256 verification failed. The downloaded file was rejected." }
+                        }
                         if (target.exists()) target.delete()
                         check(temp.renameTo(target)) { "Could not move model into private app storage." }
                     } finally {
@@ -159,14 +167,14 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 _state.update { it.copy(downloading = false, downloadProgress = 100, status = "Model downloaded. Loading…") }
-                loadModel(modelFile().absolutePath)
+                loadModel(modelFile(option).absolutePath, option.id)
             } catch (e: Exception) {
                 _state.update { it.copy(downloading = false, error = e.message ?: "Model download failed", status = "Model download failed") }
             }
         }
     }
 
-    fun loadModel(path: String) {
+    fun loadModel(path: String, modelId: String = _state.value.selectedModelId) {
         scope.launch {
             _state.update { it.copy(status = "Loading on-device AI…", error = null) }
             try {
@@ -193,7 +201,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 conversation = checkNotNull(engine).createConversation(
                     ConversationConfig(systemInstruction = Contents.of(SYSTEM_PROMPT), initialMessages = history)
                 )
-                _state.update { it.copy(modelReady = true, status = "On-device model ready • " + backendName, error = null) }
+                prefs.edit().putString("selected_model_id", modelId).apply()
+                _state.update { it.copy(modelReady = true, selectedModelId = modelId, status = "On-device model ready • " + backendName + " • " + (MODEL_OPTIONS.firstOrNull { option -> option.id == modelId }?.name ?: modelId), error = null) }
             } catch (e: Exception) {
                 closeCurrent()
                 _state.update { it.copy(modelReady = false, status = "Model could not be loaded", error = e.message ?: "Unknown LiteRT-LM error") }
