@@ -340,6 +340,14 @@ Chat messages loaded: ${state.messages.size}
                     }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text(if (allFilesGranted) "Manage broad storage access" else "Grant broad storage access", color = Night) }
                     Text("Scoped folder access: $selectedFolderLabel", color = Muted, fontSize = 11.sp)
                     OutlinedButton(onClick = { folderPicker.launch(null) }) { Text("Select a folder instead", color = Neon) }
+                    Button(onClick = { vm.scanLocalDocuments() }, enabled = !state.scanningDocuments, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
+                        Text(if (state.scanningDocuments) "Scanning…" else "Scan phone documents", color = Night)
+                    }
+                    Text(state.documentStatus, color = Muted, fontSize = 11.sp)
+                    state.localDocuments.take(20).forEach { doc ->
+                        Text("• ${doc.name}  ·  ${if (doc.content.isNotBlank()) "text indexed" else doc.mimeType}", color = Color(0xFFD8F7FA), fontSize = 10.sp)
+                    }
+                    if (state.localDocuments.size > 20) Text("…and ${state.localDocuments.size - 20} more", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("GOOGLE ACCOUNT & PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(if (state.googleConnected) "CONNECTED • local snapshot available" else state.googleStatus, color = if (state.googleConnected) Neon else Muted, fontSize = 12.sp)
