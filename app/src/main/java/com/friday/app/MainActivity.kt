@@ -444,9 +444,9 @@ Last error: ${state.error ?: "none"}
                     }
                     state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("PHONE STORAGE ACCESS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("DOCUMENT INTELLIGENCE • LOCAL ONLY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(if (allFilesGranted) "Broad shared-storage access: GRANTED" else "Broad shared-storage access: NOT GRANTED", color = Muted, fontSize = 12.sp)
-                    Text("This special access can expose most shared files, but not other apps private data. FRIDAY will not index files until you explicitly start a document feature. Google Play restricts this permission.", color = Muted, fontSize = 10.sp)
+                    Text("Choose a folder or grant shared-storage access. FRIDAY extracts searchable text locally from TXT, Markdown, CSV, JSON, XML, HTML, LOG, PDF and Office Open XML files (DOCX, XLSX, PPTX). It cannot read other apps private data.", color = Muted, fontSize = 10.sp)
                     Button(onClick = {
                         val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + context.packageName))
                         runCatching { context.startActivity(intent) }.onFailure { context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)) }
@@ -456,7 +456,7 @@ Last error: ${state.error ?: "none"}
                     Button(onClick = { vm.scanLocalDocuments() }, enabled = !state.scanningDocuments, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
                         Text(if (state.scanningDocuments) "Scanning…" else "Scan phone documents", color = Night)
                     }
-                    Text(state.documentStatus, color = Muted, fontSize = 11.sp)
+                    Text(state.documentStatus, color = Muted, fontSize = 11.sp)\n                    Text("Ask naturally in chat: \"Summarize my PDF about X\" or \"What does my project plan say about authentication?\" Answers use the best matching local excerpts.", color = SoftCyan, fontSize = 10.sp)
                     state.localDocuments.take(20).forEach { doc ->
                         Text("• ${doc.name}  ·  ${if (doc.content.isNotBlank()) "text indexed" else doc.mimeType}", color = Color(0xFFD8F7FA), fontSize = 10.sp)
                     }
