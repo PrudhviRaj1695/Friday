@@ -94,6 +94,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private fun personalizedSystemPrompt(): String {
         val p = _state.value.personalProfile
         val details = listOf(
+            "Preferred name: " + p.displayName,
             "Communication style: " + p.communicationStyle,
             "Response preferences: " + p.responsePreferences,
             "Goals: " + p.goals,
