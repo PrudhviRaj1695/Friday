@@ -80,7 +80,11 @@ object LocalDocumentIndex {
 
     private fun extract(context: Context, name: String, input: InputStream): String {
         return when (name.substringAfterLast('.', "").lowercase(Locale.ROOT)) {
-            "jpg","jpeg","png","webp" -> {\n                val bitmap = BitmapFactory.decodeStream(input) ?: return ""\n                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)\n                try { Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text } finally { recognizer.close(); bitmap.recycle() }\n            }\n            "pdf" -> PDDocument.load(input).use { doc ->
+            "jpg","jpeg","png","webp" -> {
+                val bitmap = BitmapFactory.decodeStream(input) ?: return ""
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                try { Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text } finally { recognizer.close(); bitmap.recycle() }
+            }\n            "pdf" -> PDDocument.load(input).use { doc ->
                 val stripper = PDFTextStripper().apply { sortByPosition = true }
                 buildString {
                     for (page in 1..doc.numberOfPages) {
@@ -130,7 +134,8 @@ object LocalDocumentIndex {
         "xml" -> "application/xml"; "html","htm" -> "text/html"; "pdf" -> "application/pdf"
         "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"\n        "jpg","jpeg" -> "image/jpeg"; "png" -> "image/png"; "webp" -> "image/webp"
+        "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        "jpg","jpeg" -> "image/jpeg"; "png" -> "image/png"; "webp" -> "image/webp"
         else -> "application/octet-stream"
     }
 }
