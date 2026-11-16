@@ -316,7 +316,14 @@ Last error: ${state.error ?: "none"}
 
             state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp, modifier = Modifier.padding(vertical = 3.dp)) }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = {\n                    if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {\n                        (context as? android.app.Activity)?.startActivityForResult(Intent(context, VisionCameraActivity::class.java), 7401)\n                    } else {\n                        (context as? android.app.Activity)?.requestPermissions(arrayOf(Manifest.permission.CAMERA), 7402)\n                    }\n                }, enabled = !state.busy) { Text("📷", fontSize = 21.sp) }\n                IconButton(onClick = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }, enabled = !state.busy) {
+                IconButton(onClick = {
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        (context as? android.app.Activity)?.startActivityForResult(Intent(context, VisionCameraActivity::class.java), 7401)
+                    } else {
+                        (context as? android.app.Activity)?.requestPermissions(arrayOf(Manifest.permission.CAMERA), 7402)
+                    }
+                }, enabled = !state.busy) { Text("📷", fontSize = 21.sp) }
+                IconButton(onClick = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }, enabled = !state.busy) {
                     Text("🎙", fontSize = 22.sp)
                 }
                 OutlinedTextField(
