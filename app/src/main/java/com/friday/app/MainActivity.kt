@@ -333,7 +333,9 @@ Last error: ${state.error ?: "none"}
                             modifier = Modifier.widthIn(max = 320.dp)
                         ) {
                             Text(
-                                text = message.text.ifBlank { if (state.busy && !isUser) "FRIDAY is thinking…" else " " },
+                                text = message.text
+                                    .replace("**", "")
+                                    .ifBlank { if (state.busy && !isUser) "FRIDAY is thinking…" else " " },
                                 color = Color(0xFFE3F8FA),
                                 fontSize = 14.sp,
                                 lineHeight = 20.sp,
