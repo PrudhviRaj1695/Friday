@@ -1,6 +1,11 @@
 package com.friday.app
 
 import android.content.Context
+import android.graphics.BitmapFactory
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import com.google.android.gms.tasks.Tasks
 import android.net.Uri
 import android.os.Environment
 import android.provider.DocumentsContract
@@ -24,7 +29,7 @@ object LocalDocumentIndex {
     private const val MAX_FILES = 1500
     private const val MAX_TEXT_BYTES = 20_000_000L
     private const val MAX_EXTRACTED_CHARS = 180_000
-    private val supported = setOf("txt","md","csv","json","xml","html","htm","log","pdf","docx","xlsx","pptx")
+    private val supported = setOf("txt","md","csv","json","xml","html","htm","log","pdf","docx","xlsx","pptx","jpg","jpeg","png","webp")
 
     fun scan(context: Context): List<LocalDocument> {
         PDFBoxResourceLoader.init(context.applicationContext)
@@ -75,7 +80,7 @@ object LocalDocumentIndex {
 
     private fun extract(context: Context, name: String, input: InputStream): String {
         return when (name.substringAfterLast('.', "").lowercase(Locale.ROOT)) {
-            "pdf" -> PDDocument.load(input).use { doc ->
+            "jpg","jpeg","png","webp" -> {\n                val bitmap = BitmapFactory.decodeStream(input) ?: return ""\n                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)\n                try { Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text } finally { recognizer.close(); bitmap.recycle() }\n            }\n            "pdf" -> PDDocument.load(input).use { doc ->
                 val stripper = PDFTextStripper().apply { sortByPosition = true }
                 buildString {
                     for (page in 1..doc.numberOfPages) {
@@ -125,7 +130,7 @@ object LocalDocumentIndex {
         "xml" -> "application/xml"; "html","htm" -> "text/html"; "pdf" -> "application/pdf"
         "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+        "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"\n        "jpg","jpeg" -> "image/jpeg"; "png" -> "image/png"; "webp" -> "image/webp"
         else -> "application/octet-stream"
     }
 }
