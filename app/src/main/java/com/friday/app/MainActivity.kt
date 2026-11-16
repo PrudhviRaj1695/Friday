@@ -136,7 +136,11 @@ fun FridayApp(vm: FridayViewModel) {
         }
     }
     val speechRecognizer = remember {
-        if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
+            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+        } else if (SpeechRecognizer.isRecognitionAvailable(context)) {
+            SpeechRecognizer.createSpeechRecognizer(context)
+        } else null
     }
 
     DisposableEffect(speechRecognizer) {
@@ -166,7 +170,10 @@ fun FridayApp(vm: FridayViewModel) {
                     if (state.modelReady) voiceStatus = ""
                 } else voiceStatus = "NO SPEECH RECOGNIZED • TAP MIC AND TRY AGAIN"
             }
-            override fun onPartialResults(partialResults: Bundle?) = Unit
+            override fun onPartialResults(partialResults: Bundle?) {
+                val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (!partial.isNullOrBlank()) voiceStatus = "HEARING • $partial"
+            }
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
         onDispose { speechRecognizer?.destroy() }
@@ -183,6 +190,29 @@ fun FridayApp(vm: FridayViewModel) {
             }
             speechRecognizer.startListening(intent)
         } else voiceStatus = if (speechRecognizer == null) "SPEECH SERVICE UNAVAILABLE" else "MICROPHONE PERMISSION DENIED"
+    }
+
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) FridayNotifications.show(context, "FRIDAY notifications enabled", "You'll receive local task completion and model status updates.", 700)
+    }
+    var notificationIntroOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        FridayNotifications.createChannel(context)
+        if (Build.VERSION.SDK_INT >= 33 &&
+            androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED &&
+            !context.getSharedPreferences("friday_settings", 0).getBoolean("notification_prompted", false)) {
+            notificationIntroOpen = true
+            context.getSharedPreferences("friday_settings", 0).edit().putBoolean("notification_prompted", true).apply()
+        }
+    }
+    var previousModelReady by remember { mutableStateOf(state.modelReady) }
+    var previousScanning by remember { mutableStateOf(state.scanningDocuments) }
+    LaunchedEffect(state.modelReady, state.scanningDocuments, state.documentStatus, state.error) {
+        if (!previousModelReady && state.modelReady) FridayNotifications.show(context, "FRIDAY is ready", "Your on-device AI model has loaded successfully.", 701)
+        if (previousScanning && !state.scanningDocuments) FridayNotifications.show(context, "Document scan finished", state.documentStatus, 702)
+        if (!state.error.isNullOrBlank()) FridayNotifications.show(context, "FRIDAY needs attention", state.error!!.take(180), 703)
+        previousModelReady = state.modelReady
+        previousScanning = state.scanningDocuments
     }
 
     val latestAssistant = state.messages.lastOrNull { it.role == "assistant" && it.text.isNotBlank() }?.text
@@ -350,6 +380,22 @@ Last error: ${state.error ?: "none"}
         }
     }
 
+    if (notificationIntroOpen) {
+        AlertDialog(
+            onDismissRequest = { notificationIntroOpen = false },
+            containerColor = Color(0xFF0B1C2E),
+            title = { Text("Stay informed", color = Color.White) },
+            text = { Text("Allow FRIDAY to notify you when the local model is ready, document scans finish, or an operation needs attention. Notifications contain status only, never your chat or document contents.", color = Muted) },
+            confirmButton = {
+                TextButton(onClick = {
+                    notificationIntroOpen = false
+                    if (Build.VERSION.SDK_INT >= 33) notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }) { Text("ENABLE NOTIFICATIONS", color = Neon) }
+            },
+            dismissButton = { TextButton(onClick = { notificationIntroOpen = false }) { Text("NOT NOW", color = Muted) } }
+        )
+    }
+
     if (debugOpen) {
         AlertDialog(
             onDismissRequest = { debugOpen = false },
@@ -451,8 +497,26 @@ Last error: ${state.error ?: "none"}
                     }
                     Text("Models stay on this phone in app-private storage. Download only one at a time; larger models need more free storage and RAM.", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
+                    Text("VOICE INPUT • ON-DEVICE FIRST", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available on this phone. FRIDAY selects it before the system recognizer." else "On-device speech recognition is not exposed by the installed speech service. Android may use its configured recognition provider.",
+                        color = Muted, fontSize = 10.sp
+                    )
                     Text("VOICE OUTPUT • ANDROID SYSTEM TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
+                    OutlinedButton(onClick = {
+                        runCatching { context.startActivity(Intent("com.android.settings.TTS_SETTINGS")) }
+                    }) { Text("Voice & speech settings", color = Neon) }
+                    HorizontalDivider(color = Color(0xFF1C354A))
+                    Text("NOTIFICATIONS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Local status alerts only • no message, document or personal content is included.", color = Muted, fontSize = 10.sp)
+                    OutlinedButton(onClick = {
+                        if (Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        } else {
+                            runCatching { context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)) }
+                        }
+                    }) { Text("Manage notification permission", color = Neon) }
                     Text("Uses the speech engine and voices installed on your phone. No Kokoro download or extra voice model.", color = Muted, fontSize = 10.sp)
                     Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test Android voice", color = Night) }
                     if (state.downloading) {
