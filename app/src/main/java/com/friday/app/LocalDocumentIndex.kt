@@ -12,6 +12,7 @@ import android.provider.DocumentsContract
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.rendering.PDFRenderer
 import java.io.File
 import java.io.InputStream
 import java.util.Locale
@@ -87,11 +88,21 @@ object LocalDocumentIndex {
             }
             "pdf" -> PDDocument.load(input).use { doc ->
                 val stripper = PDFTextStripper().apply { sortByPosition = true }
+                val renderer = PDFRenderer(doc)
                 buildString {
-                    for (page in 1..doc.numberOfPages) {
+                    for (page in 1..doc.numberOfPages.coerceAtMost(80)) {
                         stripper.startPage = page
                         stripper.endPage = page
-                        append("\n[PAGE ").append(page).append("]\n").append(stripper.getText(doc)).append('\n')
+                        var pageText = stripper.getText(doc).trim()
+                        if (pageText.isBlank()) {
+                            val bitmap = runCatching { renderer.renderImageWithDPI(page - 1, 130f) }.getOrNull()
+                            if (bitmap != null) {
+                                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+                                pageText = try { Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text }
+                                    finally { recognizer.close(); bitmap.recycle() }
+                            }
+                        }
+                        append("\\n[PAGE ").append(page).append("]\\n").append(pageText).append('\\n')
                         if (length >= MAX_EXTRACTED_CHARS) break
                     }
                 }
