@@ -21,7 +21,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream
 class LocalVoiceEngine(private val context: Context) {
     companion object {
         const val ARCHIVE_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-en-v0_19.tar.bz2"
-        private const val MODEL_DIR = "kokoro-en-v0_19"
+        private const val MODEL_DIR = "kokoro-int8-en-v0_19"
     }
 
     private val voiceDir = File(context.filesDir, "voice/$MODEL_DIR")
