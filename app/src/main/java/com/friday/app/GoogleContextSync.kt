@@ -44,7 +44,23 @@ object GoogleContextSync {
         runCatching { File(context.filesDir, "google_context.txt").takeIf { it.exists() }?.readText().orEmpty() }
             .getOrDefault("")
 
-    private fun getText(url: String, token: String): String {\n        val connection = (URL(url).openConnection() as HttpURLConnection).apply {\n            requestMethod = "GET"\n            connectTimeout = 12_000\n            readTimeout = 20_000\n            setRequestProperty("Authorization", "Bearer $token")\n        }\n        try {\n            val code = connection.responseCode\n            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)\n                ?.bufferedReader()?.use { it.readText() }.orEmpty()\n            check(code in 200..299) { "Google Drive export returned HTTP $code" }\n            return body\n        } finally { connection.disconnect() }\n    }\n\n    private fun get(url: String, token: String): JSONObject {
+    private fun getText(url: String, token: String): String {
+        val connection = (URL(url).openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 12_000
+            readTimeout = 20_000
+            setRequestProperty("Authorization", "Bearer $token")
+        }
+        try {
+            val code = connection.responseCode
+            val body = (if (code in 200..299) connection.inputStream else connection.errorStream)
+                ?.bufferedReader()?.use { it.readText() }.orEmpty()
+            check(code in 200..299) { "Google Drive export returned HTTP $code" }
+            return body
+        } finally { connection.disconnect() }
+    }
+
+    private fun get(url: String, token: String): JSONObject {
         val connection = (URL(url).openConnection() as HttpURLConnection).apply {
             requestMethod = "GET"
             connectTimeout = 12_000
@@ -66,9 +82,17 @@ object GoogleContextSync {
         val json = get("https://www.googleapis.com/drive/v3/files?pageSize=20&orderBy=modifiedTime%20desc&q=trashed%3Dfalse&fields=$fields", token)
         val files = json.optJSONArray("files")
         val lines = (0 until (files?.length() ?: 0)).mapNotNull { i ->
-            files?.optJSONObject(i)?.let { "• ${it.optString("name")} [${it.optString("mimeType")}] · ${it.optString("modifiedTime")}" }
+            files?.optJSONObject(i)?.let { file ->
+                val id = file.optString("id")
+                val name = file.optString("name")
+                val mime = file.optString("mimeType")
+                val body = if (mime == "application/vnd.google-apps.document") {
+                    runCatching { getText("https://www.googleapis.com/drive/v3/files/$id/export?mimeType=text%2Fplain", token).take(3500) }.getOrDefault("")
+                } else ""
+                "• $name [$mime] · ${file.optString("modifiedTime")}" + if (body.isNotBlank()) "\n  $body" else ""
+            }
         }
-        "GOOGLE DRIVE — recent files\n" + if (lines.isEmpty()) "No files returned." else lines.joinToString("\n")
+        "GOOGLE DRIVE — recent files and Google Docs text\n" + if (lines.isEmpty()) "No files returned." else lines.joinToString("\n")
     }.getOrElse { "GOOGLE DRIVE — unavailable: ${it.message}" }
 
     private fun fetchGmail(token: String): String = runCatching {
