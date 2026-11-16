@@ -64,13 +64,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.util.Locale
 
-private val Night = Color(0xFF050208)
-private val DeepBlue = Color(0xFF12051B)
-private val Neon = Color(0xFFE04BFF)
-private val SoftCyan = Color(0xFFB64AE8)
-private val Muted = Color(0xFFB9A9C2)
-private val Violet = Color(0xFF8E20B7)
-private val PinkGlow = Color(0xFFFF55D7)
+private val Night = Color(0xFF070811)
+private val DeepBlue = Color(0xFF101426)
+private val Neon = Color(0xFFB69CFF)
+private val SoftCyan = Color(0xFF8DCBFF)
+private val Muted = Color(0xFFB8C0D8)
+private val Violet = Color(0xFF6853C7)
+private val PinkGlow = Color(0xFFDAA9FF)
 
 class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
@@ -103,6 +103,8 @@ fun FridayApp(vm: FridayViewModel) {
     var googleActionError by remember { mutableStateOf<String?>(null) }
     var clearMemoryConfirm by remember { mutableStateOf(false) }
     var modelMenuOpen by remember { mutableStateOf(false) }
+    var personalityNameDraft by remember { mutableStateOf("Custom") }
+    var personalityPromptDraft by remember { mutableStateOf("") }
     var allFilesGranted by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     var selectedFolderLabel by remember { mutableStateOf(context.getSharedPreferences("friday_storage", 0).getString("tree_uri", null)?.let { "A folder is linked" } ?: "No folder selected") }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -501,6 +503,46 @@ Last error: ${state.error ?: "none"}
                     Text("PERSONAL INTELLIGENCE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("Encrypted on-device profile • learns only what you choose to save", color = Muted, fontSize = 10.sp)
                     OutlinedButton(onClick = { profileDraft = state.personalProfile; profileOpen = true }) { Text("Customize how FRIDAY knows and assists me", color = Neon) }
+                    HorizontalDivider(color = Color(0xFF30334A))
+                    Text("LANGUAGE & VOICE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Choose the language FRIDAY uses for replies.", color = Muted, fontSize = 11.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("English", "Telugu").forEach { lang ->
+                            FilterChip(selected = state.responseLanguage == lang, onClick = { vm.setResponseLanguage(lang) }, label = { Text(if (lang == "Telugu") "తెలుగు" else "English") })
+                        }
+                    }
+                    Text("PERSONALITY STUDIO", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    var personalityMenuOpen by remember { mutableStateOf(false) }
+                    Box {
+                        OutlinedButton(onClick = { personalityMenuOpen = true }) { Text("Active: ${state.activePersonality}", color = Neon) }
+                        DropdownMenu(expanded = personalityMenuOpen, onDismissRequest = { personalityMenuOpen = false }) {
+                            listOf(
+                                "Executive" to "Act as a concise executive advisor. Prioritize decisions, trade-offs, risks and next actions.",
+                                "Friendly" to "Be warm, natural, supportive and conversational without being overly agreeable.",
+                                "Teacher" to "Teach patiently, explain concepts step by step and use practical examples.",
+                                "Engineer" to "Respond like a senior software engineer. Be technically precise, pragmatic and include implementation details when useful."
+                            ).forEach { (name, prompt) ->
+                                DropdownMenuItem(text = { Text(name) }, onClick = { vm.setPersonality(name, prompt); personalityMenuOpen = false; personalityNameDraft = name; personalityPromptDraft = prompt })
+                            }
+                        }
+                    }
+                    OutlinedTextField(value = personalityNameDraft, onValueChange = { personalityNameDraft = it }, label = { Text("Custom profile name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(value = personalityPromptDraft, onValueChange = { personalityPromptDraft = it }, label = { Text("Custom response instructions") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                    Button(onClick = { vm.setPersonality(personalityNameDraft.ifBlank { "Custom" }, personalityPromptDraft) }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Save and activate personality", color = Night) }
+                    Text("CREATIVITY • PROMPT-GUIDED", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Creativity: ${"%.1f".format(state.creativity)}  •  This guides response style; it is not native token-sampling temperature.", color = Muted, fontSize = 10.sp)
+                    Slider(value = state.creativity, onValueChange = vm::setCreativity, valueRange = 0f..2f)
+                    Text("CONTENT STYLE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        listOf("Strict", "Balanced", "Relaxed").forEach { style ->
+                            FilterChip(selected = state.contentStyle == style, onClick = { vm.setContentStyle(style) }, label = { Text(style, fontSize = 11.sp) })
+                        }
+                    }
+                    Text("Relaxed changes ordinary language style only; core safety protections remain active.", color = Muted, fontSize = 10.sp)
+                    Text("CHAT READABILITY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Message text size: ${state.chatFontSize} sp", color = Muted, fontSize = 11.sp)
+                    Slider(value = state.chatFontSize.toFloat(), onValueChange = { vm.setChatFontSize(it.toInt()) }, valueRange = 14f..24f, steps = 9)
+                    
                     Text("Your profile shapes tone, answer structure, goals and working context. It does not retrain model weights.", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("LOCAL MODEL LIBRARY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
