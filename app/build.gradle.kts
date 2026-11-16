@@ -33,8 +33,6 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("com.google.ai.edge.litertlm:litertlm-android:0.18.0")
-    implementation("com.github.k2-fsa:sherpa-onnx:2.0.1")
-    implementation("org.apache.commons:commons-compress:1.27.1")
     implementation(files("libs/sherpa-onnx-2.0.1.aar"))
     implementation("org.apache.commons:commons-compress:1.27.1")
     implementation("com.tom-roush:pdfbox-android:2.0.27.0")
