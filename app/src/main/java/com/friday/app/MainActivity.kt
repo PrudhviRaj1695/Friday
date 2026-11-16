@@ -363,7 +363,7 @@ Chat messages loaded: ${state.messages.size}
                     HorizontalDivider(color = Color(0xFF1C354A))
                     TextButton(onClick = { clearMemoryConfirm = true }) { Text("Clear local chat history", color = Color(0xFFFF9CA9)) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (state.voiceModelReady) "Speak replies (downloaded Kokoro voice)" else "Speak replies (Android fallback)", color = Color.White, modifier = Modifier.weight(1f))
+                        Text(if (state.voiceModelReady) "Speak replies (Android system voice)" else "Speak replies (Android fallback)", color = Color.White, modifier = Modifier.weight(1f))
                         Switch(checked = state.speakReplies, onCheckedChange = vm::setSpeakReplies)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
