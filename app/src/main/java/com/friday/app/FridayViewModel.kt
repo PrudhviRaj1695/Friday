@@ -64,7 +64,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val voiceScope = CoroutineScope(SupervisorJob() + voiceDispatcher)
     private val voiceEngine = LocalVoiceEngine(app)
     private val systemVoice = SystemVoiceEngine(app) { ready, message ->
-        _state.update { it.copy(systemVoiceReady = ready, voiceStatus = message) }
+        _state.update {
+            if (!it.voiceModelReady && !it.voiceDownloading) it.copy(systemVoiceReady = ready, voiceStatus = message)
+            else it.copy(systemVoiceReady = ready)
+        }
     }
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
     private val _state = MutableStateFlow(FridayState(
@@ -204,11 +207,9 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun speakSentence(text: String) {
-        if (!_state.value.speakReplies || text.isBlank()) return
+    private fun playVoice(text: String) {
         val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
         if (speechText.isBlank()) return
-
         if (_state.value.voiceModelReady) {
             voiceScope.launch {
                 _state.update { it.copy(voiceStatus = "Speaking with downloaded Kokoro voice…") }
@@ -224,8 +225,12 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun speakSentence(text: String) {
+        if (_state.value.speakReplies) playVoice(text)
+    }
+
     fun testVoice() {
-        speakSentence("Hello. I am FRIDAY. Voice output is working.")
+        playVoice("Hello. I am FRIDAY. This is a test of the selected offline voice.")
     }
 
     fun stopSpeaking() { voiceEngine.stop(); systemVoice.stop() }
