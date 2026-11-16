@@ -264,15 +264,6 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 checkNotNull(conversation).sendMessageAsync(prompt).collect { chunk ->
                     if (firstChunkMs == null) firstChunkMs = android.os.SystemClock.elapsedRealtime() - startedAt
                     response.append(chunk.toString())
-                    if (_state.value.speakReplies && _state.value.voiceModelReady) {
-                        val snapshot = response.toString()
-                        val boundary = maxOf(snapshot.lastIndexOf('.'), snapshot.lastIndexOf('?'), snapshot.lastIndexOf('!'), snapshot.lastIndexOf('\n'))
-                        if (boundary >= spokenUntil) {
-                            val sentence = snapshot.substring(spokenUntil, boundary + 1).trim()
-                            if (sentence.length >= 3) speakSentence(sentence)
-                            spokenUntil = boundary + 1
-                        }
-                    }
                     val now = android.os.SystemClock.elapsedRealtime()
                     if (response.length - lastUiLength >= 32 || now - lastUiUpdateAt >= 120) {
                         _state.update { current ->
@@ -285,6 +276,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                     }
                 }
                 val answer = response.toString().trim()
+                if (_state.value.speakReplies && _state.value.voiceModelReady && answer.isNotBlank()) speakSentence(answer)
                 if (answer.isNotEmpty()) store.append("assistant", answer)
                 if (_state.value.speakReplies && _state.value.voiceModelReady && spokenUntil < answer.length) speakSentence(answer.substring(spokenUntil))
                 val elapsed = (android.os.SystemClock.elapsedRealtime() - startedAt).coerceAtLeast(1)
