@@ -135,25 +135,33 @@ class LocalVoiceEngine(private val context: Context) {
         val sampleRate = engine.sampleRate()
         val minBuffer = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT).coerceAtLeast(4096)
         val track = AudioTrack.Builder()
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
             .setAudioFormat(AudioFormat.Builder().setSampleRate(sampleRate).setEncoding(AudioFormat.ENCODING_PCM_16BIT).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
             .setBufferSizeInBytes(minBuffer * 2)
             .setTransferMode(AudioTrack.MODE_STREAM)
             .build()
+        check(track.state == AudioTrack.STATE_INITIALIZED) { "Android could not initialize audio output (AudioTrack state=${track.state})" }
         currentTrack = track
-        track.play()
+        var generatedSamples = 0
+        var writtenSamples = 0
         try {
+            track.play()
+            check(track.playState == AudioTrack.PLAYSTATE_PLAYING) { "Android audio output did not enter PLAYING state" }
             engine.generateWithCallback(clean, speakerId, speed) { samples ->
                 if (stopRequested.get()) return@generateWithCallback 0
+                generatedSamples += samples.size
                 val pcm = ShortArray(samples.size) { i -> (samples[i].coerceIn(-1f, 1f) * Short.MAX_VALUE).toInt().toShort() }
                 var offset = 0
                 while (offset < pcm.size && !stopRequested.get()) {
                     val written = track.write(pcm, offset, pcm.size - offset, AudioTrack.WRITE_BLOCKING)
-                    if (written <= 0) break
+                    check(written > 0) { "AudioTrack write failed with code $written" }
                     offset += written
+                    writtenSamples += written
                 }
                 if (stopRequested.get()) 0 else 1
             }
+            check(stopRequested.get() || generatedSamples > 0) { "Kokoro generated no audio samples. Check voice model files and speaker ID." }
+            check(stopRequested.get() || writtenSamples > 0) { "Kokoro generated audio but Android played no samples." }
         } finally {
             try { track.stop() } catch (_: Exception) { }
             track.release()
