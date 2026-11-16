@@ -24,9 +24,9 @@ import java.net.URL
  */
 class KokoroVoiceEngine(private val context: Context) {
     companion object {
-        private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-en-v0_19.tar.bz2"
-        private const val MODEL_ARCHIVE = "kokoro-en-v0_19.tar.bz2"
-        private const val MODEL_FOLDER = "kokoro-en-v0_19"
+        private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2"
+        private const val MODEL_ARCHIVE = "kokoro-int8-multi-lang-v1_1.tar.bz2"
+        private const val MODEL_FOLDER = "kokoro-int8-multi-lang-v1_1"
         // kokoro-en-v0_19 speaker 6 is am_michael (male American English).
         const val DEFAULT_VOICE_ID = 6
     }
@@ -37,10 +37,10 @@ class KokoroVoiceEngine(private val context: Context) {
 
     fun isInstalled(): Boolean {
         val dir = File(context.filesDir, MODEL_FOLDER)
-        return File(dir, "model.onnx").length() > 100_000_000L &&
+        return File(dir, "model.int8.onnx").length() > 50_000_000L &&
             File(dir, "voices.bin").length() > 1_000_000L &&
             File(dir, "tokens.txt").exists() &&
-            File(dir, "espeak-ng-data").isDirectory
+            File(dir, "espeak-ng-data").isDirectory && File(dir, "lexicon-us-en.txt").isFile
     }
 
     suspend fun download(onProgress: (Int) -> Unit): Boolean = withContext(Dispatchers.IO) {
@@ -120,7 +120,7 @@ class KokoroVoiceEngine(private val context: Context) {
             val config = OfflineTtsConfig(
                 model = OfflineTtsModelConfig(
                     kokoro = OfflineTtsKokoroModelConfig(
-                        model = File(dir, "model.onnx").absolutePath,
+                        model = File(dir, "model.int8.onnx").absolutePath,
                         voices = File(dir, "voices.bin").absolutePath,
                         tokens = File(dir, "tokens.txt").absolutePath,
                         dataDir = File(dir, "espeak-ng-data").absolutePath,
@@ -130,7 +130,7 @@ class KokoroVoiceEngine(private val context: Context) {
                     provider = "cpu",
                     debug = false
                 ),
-                maxNumSentences = 2,
+                maxNumSentences = 1,
                 silenceScale = 0.25f
             )
             tts = OfflineTts(assetManager = null, config = config)
