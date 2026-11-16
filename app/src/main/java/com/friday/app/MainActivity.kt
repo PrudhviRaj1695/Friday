@@ -555,7 +555,7 @@ Last error: ${state.error ?: "none"}
                         Text("Downloading voice model • ${state.voiceDownloadProgress}%", color = Muted, fontSize = 11.sp)
                     } else if (!state.voiceModelReady) {
                         Button(onClick = { vm.downloadVoiceModel() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
-                            Text("Download offline neural voice (~330 MB)", color = Night)
+                            Text("Download offline neural voice model", color = Night)
                         }
                     } else {
                         Text("Voice: Michael • male American English. Indian-English male voice is not included in this model.", color = Muted, fontSize = 10.sp)
