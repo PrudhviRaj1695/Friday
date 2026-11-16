@@ -265,7 +265,7 @@ class VisionCameraActivity : ComponentActivity() {
         finish()
     }
 
-    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 7410 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startCamera()
         else if (requestCode == 7410) status.text = "Camera permission denied. Enable it in Android app settings."
