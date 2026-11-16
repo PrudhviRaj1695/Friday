@@ -165,8 +165,12 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     val state: StateFlow<FridayState> = _state.asStateFlow()
     init {
         if (kokoroVoice.isInstalled()) scope.launch {
-            val ready = kokoroVoice.initialize()
-            _state.update { it.copy(voiceModelReady = ready, voiceStatus = if (ready) "Kokoro neural voice ready • offline" else "Kokoro voice initialization failed") }
+            try {
+                val ready = kokoroVoice.initialize()
+                _state.update { it.copy(voiceModelReady = ready, voiceStatus = if (ready) "Kokoro neural voice ready • offline" else "Kokoro voice initialization failed") }
+            } catch (e: Exception) {
+                _state.update { it.copy(voiceModelReady = false, voiceStatus = e.message ?: "Kokoro initialization failed") }
+            }
         }
     }
     private var engine: Engine? = null
