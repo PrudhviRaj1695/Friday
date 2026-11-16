@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
-import android.speech.tts.TextToSpeech
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -69,7 +68,6 @@ fun FridayApp(vm: FridayViewModel) {
     val speechRecognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
     }
-    val ttsRef = remember { mutableStateOf<TextToSpeech?>(null) }
 
     DisposableEffect(speechRecognizer) {
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
@@ -90,12 +88,6 @@ fun FridayApp(vm: FridayViewModel) {
         onDispose { speechRecognizer?.destroy() }
     }
 
-    DisposableEffect(context) {
-        val tts = TextToSpeech(context) { }
-        tts.language = Locale.getDefault()
-        ttsRef.value = tts
-        onDispose { tts.stop(); tts.shutdown(); ttsRef.value = null }
-    }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted && speechRecognizer != null) {
@@ -110,11 +102,6 @@ fun FridayApp(vm: FridayViewModel) {
     }
 
     val latestAssistant = state.messages.lastOrNull { it.role == "assistant" && it.text.isNotBlank() }?.text
-    LaunchedEffect(latestAssistant, state.speakReplies) {
-        if (state.speakReplies && !state.busy && !latestAssistant.isNullOrBlank()) {
-            ttsRef.value?.speak(latestAssistant, TextToSpeech.QUEUE_FLUSH, null, "friday-reply")
-        }
-    }
 
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF03172A), Night, Color(0xFF010713))))) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 12.dp)) {
@@ -171,7 +158,7 @@ fun FridayApp(vm: FridayViewModel) {
                         Text(if (state.busy) "THINKING…" else if (voiceStatus.isNotBlank()) voiceStatus else "Tap to Command",
                             color = Neon, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
                         Spacer(Modifier.height(5.dp))
-                        Text(if (state.modelReady) "VOICE • LOCAL INFERENCE" else "DOWNLOAD MODEL IN SETUP",
+                        Text(if (state.voiceModelReady) "KOKORO • OFFLINE NATURAL VOICE" else "INSTALL VOICE IN SETUP",
                             color = Muted, fontSize = 9.sp, letterSpacing = 1.4.sp)
                     }
                 }
@@ -198,6 +185,17 @@ fun FridayApp(vm: FridayViewModel) {
                     Text("ON-DEVICE MODEL", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                     Text("Qwen3 0.6B • approximately 614 MB", color = Color.White, fontSize = 14.sp)
                     Text(state.status, color = Muted, fontSize = 12.sp)
+                    HorizontalDivider(color = Color(0xFF1C354A))
+                    Text("NATURAL LOCAL VOICE • KOKORO", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
+                    if (state.voiceDownloading) {
+                        LinearProgressIndicator(progress = { state.voiceDownloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
+                        Text("Downloading voice model: " + state.voiceDownloadProgress + "%", color = Muted, fontSize = 12.sp)
+                    } else if (!state.voiceModelReady) {
+                        Button(onClick = { vm.downloadVoiceModel() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
+                            Text("Download natural voice", color = Night)
+                        }
+                    }
                     if (state.downloading) {
                         LinearProgressIndicator(progress = { state.downloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
                         Text("Downloading ${state.downloadProgress}%", color = Muted, fontSize = 12.sp)
@@ -209,7 +207,7 @@ fun FridayApp(vm: FridayViewModel) {
                     state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("Speak replies", color = Color.White, modifier = Modifier.weight(1f))
+                        Text("Speak replies (Kokoro local)", color = Color.White, modifier = Modifier.weight(1f))
                         Switch(checked = state.speakReplies, onCheckedChange = vm::setSpeakReplies)
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {
