@@ -19,7 +19,8 @@ data class PersonalProfile(
     val workContext: String = "",
     val interests: String = "",
     val customInstructions: String = "",
-    val learnedNotes: String = "",\n    val fineTuneExamples: String = ""
+    val learnedNotes: String = "",
+    val fineTuneExamples: String = ""
 ) {
     fun toJson() = JSONObject().put("displayName",displayName).put("communicationStyle",communicationStyle)
         .put("responsePreferences",responsePreferences).put("goals",goals).put("workContext",workContext)
