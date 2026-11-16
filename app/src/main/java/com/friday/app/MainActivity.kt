@@ -197,7 +197,6 @@ fun FridayApp(vm: FridayViewModel) {
             else -> "Other"
         }
         val appInfo = context.packageManager.getPackageInfo(context.packageName, 0)
-        val ttsEngines = runCatching { android.speech.tts.TextToSpeech(context) { } }.getOrNull()
         """
 FRIDAY FULL DIAGNOSTICS
 Captured: ${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss z", Locale.getDefault()).format(java.util.Date())}
@@ -339,18 +338,47 @@ Last error: ${state.error ?: "none"}
         AlertDialog(
             onDismissRequest = { debugOpen = false },
             containerColor = Color(0xFF0B1C2E),
-            title = { Text("Latency & debug report", color = Color.White) },
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text("Diagnostics center", color = Color.White, fontWeight = FontWeight.SemiBold)
+                    Text("Device • model • performance • permissions", color = Muted, fontSize = 10.sp)
+                }
+            },
             text = {
-                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Copy this report and paste it into ChatGPT when FRIDAY behaves incorrectly. It contains device/runtime status and timing, not your chat messages or Google content.", color = Muted, fontSize = 11.sp)
-                    Text(debugReport, color = Color(0xFFD8F7FA), fontSize = 11.sp, lineHeight = 17.sp)
-                    Text(state.promptProcessingStatus, color = SoftCyan, fontSize = 11.sp)
-                    Text(state.generationStatus, color = SoftCyan, fontSize = 11.sp)
+                Column(Modifier.fillMaxWidth().heightIn(max = 520.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DiagnosticTile("MODEL", if (state.modelReady) "Ready" else "Not ready", state.modelReady)
+                        DiagnosticTile("VOICE", if (state.systemVoiceReady) "Ready" else "Check", state.systemVoiceReady)
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        DiagnosticTile("GOOGLE", if (state.googleConnected) "Connected" else "Offline", state.googleConnected)
+                        DiagnosticTile("STORAGE", if (allFilesGranted || selectedFolderLabel != "No folder selected") "Granted" else "Limited", allFilesGranted || selectedFolderLabel != "No folder selected")
+                    }
+                    Text("LATENCY", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text(state.promptProcessingStatus, color = Color.White, fontSize = 11.sp)
+                    Text(state.generationStatus, color = Color.White, fontSize = 11.sp)
                     Text(state.performanceStatus, color = SoftCyan, fontSize = 11.sp)
+                    Text("LIVE DEVICE SNAPSHOT", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("RAM, storage, battery, network, Android version, app version, model state, permissions, voice recognition and document-index counts are included in the report.", color = Muted, fontSize = 11.sp)
+                    Text("REPORT PREVIEW", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Surface(color = Color(0xFF061423), shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth()) {
+                        Text(debugReport, color = Color(0xFFD8F7FA), fontSize = 10.sp, lineHeight = 15.sp, modifier = Modifier.padding(12.dp))
+                    }
+                    Text("Privacy: report excludes chat text, email contents, contacts and document contents. Review before sharing.", color = Muted, fontSize = 10.sp)
                 }
             },
             confirmButton = {
-                TextButton(onClick = { clipboard.setText(AnnotatedString(debugReport)); debugOpen = false }) { Text("COPY REPORT", color = Neon) }
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    TextButton(onClick = { clipboard.setText(AnnotatedString(debugReport)) }) { Text("COPY", color = Neon) }
+                    TextButton(onClick = {
+                        val share = Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_SUBJECT, "FRIDAY diagnostics")
+                            putExtra(Intent.EXTRA_TEXT, debugReport)
+                        }
+                        context.startActivity(Intent.createChooser(share, "Share diagnostics"))
+                    }) { Text("SHARE", color = Neon) }
+                }
             },
             dismissButton = { TextButton(onClick = { debugOpen = false }) { Text("CLOSE", color = Muted) } }
         )
@@ -506,6 +534,20 @@ Last error: ${state.error ?: "none"}
             },
             dismissButton = { TextButton(onClick = { textOpen = false }) { Text("CANCEL", color = Muted) } }
         )
+    }
+}
+
+@Composable
+private fun DiagnosticTile(label: String, value: String, healthy: Boolean) {
+    Surface(
+        color = if (healthy) Color(0xFF0A2B31) else Color(0xFF30271F),
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.weight(1f)
+    ) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(label, color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(value, color = if (healthy) Neon else Color(0xFFFFC58F), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
