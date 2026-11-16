@@ -110,7 +110,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             "Custom instructions: " + p.customInstructions,
             "User-approved notes: " + p.learnedNotes
         ).filter { it.substringAfter(": ").isNotBlank() }
-        return SYSTEM_PROMPT + if (details.isEmpty()) "" else "\\n\\nPersonalization profile (user-controlled; follow when relevant):\\n" + details.joinToString("\\n")
+        return SYSTEM_PROMPT + if (details.isEmpty()) "" else "\n\nPersonalization profile (user-controlled; follow when relevant):\n" + details.joinToString("\n")
     }
 
     fun savePersonalProfile(profile: PersonalProfile) {
