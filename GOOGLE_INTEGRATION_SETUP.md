@@ -37,7 +37,7 @@ For a local debug build, run:
 ./gradlew signingReport
 ```
 
-Use the SHA-1 under the `debug` variant. If you install an APK signed with a different key (for example, a separately signed release APK), register that certificate fingerprint too.
+Use the SHA-1 under the `debug` variant. For a GitHub Actions APK, open the matching workflow run and inspect the **Print APK signing SHA-1 for Google OAuth setup** step; register the SHA-1 printed for that exact artifact. If you install an APK signed with a different key (for example, a separately signed release APK), register that certificate fingerprint too.
 
 No client secret belongs in the Android app or GitHub repository.
 
