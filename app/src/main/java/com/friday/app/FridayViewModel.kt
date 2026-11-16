@@ -68,15 +68,9 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val executor = Executors.newSingleThreadExecutor()
     private val dispatcher = executor.asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
-    private val voiceExecutor = Executors.newSingleThreadExecutor()
-    private val voiceDispatcher = voiceExecutor.asCoroutineDispatcher()
-    private val voiceScope = CoroutineScope(SupervisorJob() + voiceDispatcher)
-    private val voiceEngine = LocalVoiceEngine(app)
+    // Android's installed TTS engine avoids bundled models and native audio runtimes.
     private val systemVoice = SystemVoiceEngine(app) { ready, message ->
-        _state.update {
-            if (!it.voiceModelReady && !it.voiceDownloading) it.copy(systemVoiceReady = ready, voiceStatus = message)
-            else it.copy(systemVoiceReady = ready)
-        }
+        _state.update { it.copy(systemVoiceReady = ready, voiceStatus = message) }
     }
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
     private val _state = MutableStateFlow(FridayState(
@@ -91,16 +85,6 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private var conversation: Conversation? = null
 
     init {
-        if (voiceEngine.isInstalled()) {
-            _state.update { it.copy(voiceModelReady = false, voiceStatus = "Downloaded Kokoro voice found • loading…") }
-            voiceScope.launch {
-                runCatching { voiceEngine.initialize() }
-                    .onSuccess { _state.update { it.copy(voiceModelReady = true, voiceStatus = "Downloaded Kokoro voice ready • offline") } }
-                    .onFailure { failure ->
-                        _state.update { it.copy(voiceModelReady = false, voiceStatus = "Kokoro load failed: ${failure.message ?: "unknown error"}") }
-                    }
-            }
-        }
         val model = modelFile()
         if (model.exists() && model.length() in MODEL_MIN_SIZE_BYTES..MODEL_MAX_SIZE_BYTES) {
             loadModel(model.absolutePath)
@@ -200,43 +184,13 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    fun downloadVoiceModel() {
-        if (_state.value.voiceDownloading || _state.value.voiceModelReady) return
-        voiceScope.launch {
-            _state.update { it.copy(voiceDownloading = true, voiceDownloadProgress = 0, voiceStatus = "Downloading Kokoro natural voice…", error = null) }
-            try {
-                withContext(Dispatchers.IO) {
-                    voiceEngine.download { progress -> _state.update { it.copy(voiceDownloadProgress = progress) } }
-                }
-                _state.update { it.copy(voiceStatus = "Loading natural voice model…") }
-                voiceEngine.initialize()
-                _state.update { it.copy(voiceDownloading = false, voiceModelReady = true, voiceDownloadProgress = 100, voiceStatus = "Downloaded Kokoro voice ready • offline") }
-            } catch (e: Exception) {
-                _state.update { it.copy(voiceDownloading = false, voiceModelReady = false, voiceStatus = "Voice setup failed", error = e.message ?: "Kokoro setup failed") }
-            }
-        }
-    }
-
     private fun playVoice(text: String) {
         val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
         if (speechText.isBlank()) return
-        if (_state.value.voiceModelReady) {
-            voiceScope.launch {
-                _state.update { it.copy(voiceStatus = "Speaking with downloaded Kokoro voice…") }
-                runCatching { voiceEngine.speak(speechText, speakerId = 0, speed = 1.0f) }
-                    .onSuccess { _state.update { it.copy(voiceStatus = "Kokoro playback completed • offline") } }
-                    .onFailure { failure ->
-                        val detail = failure.message?.takeIf { it.isNotBlank() } ?: failure.javaClass.simpleName
-                        val fallbackQueued = systemVoice.speak(speechText)
-                        _state.update { it.copy(voiceStatus = if (fallbackQueued) "Kokoro failed ($detail) • trying Android voice" else "Kokoro failed ($detail) • Android voice unavailable") }
-                    }
-            }
-        } else {
-            val queued = systemVoice.speak(speechText)
-            if (!queued) _state.update { it.copy(voiceStatus = "No speech engine available: check Android Text-to-Speech settings") }
-        }
+        val queued = systemVoice.speak(speechText)
+        if (!queued) _state.update { it.copy(voiceStatus = "Android TTS could not queue speech. Check the selected engine and installed language voice.") }
+        else _state.update { it.copy(voiceStatus = "Speech queued • Android system voice") }
     }
-
     fun speakSentence(text: String) {
         if (_state.value.speakReplies) playVoice(text)
     }
@@ -245,7 +199,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         playVoice("Hello. I am FRIDAY. This is a test of the selected offline voice.")
     }
 
-    fun stopSpeaking() { voiceEngine.stop(); systemVoice.stop() }
+    fun stopSpeaking() { systemVoice.stop() }
 
     fun syncGoogleContext(accessToken: String) {
         scope.launch {
@@ -440,9 +394,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         engine = null
     }
     override fun onCleared() {
-        voiceEngine.stop()
         systemVoice.shutdown()
-        voiceScope.launch { voiceEngine.release(); voiceDispatcher.close(); voiceExecutor.shutdown() }
         scope.launch {
             closeCurrent()
             dispatcher.close()
