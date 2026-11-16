@@ -24,6 +24,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -41,6 +44,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -73,6 +78,7 @@ fun FridayApp(vm: FridayViewModel) {
     val context = LocalContext.current
     var setupOpen by remember { mutableStateOf(false) }
     var textOpen by remember { mutableStateOf(false) }
+    var debugOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var voiceStatus by remember { mutableStateOf("") }
     var googleActionError by remember { mutableStateOf<String?>(null) }
@@ -149,76 +155,133 @@ fun FridayApp(vm: FridayViewModel) {
 
     val latestAssistant = state.messages.lastOrNull { it.role == "assistant" && it.text.isNotBlank() }?.text
 
+    val chatListState = rememberLazyListState()
+    val clipboard = LocalClipboardManager.current
+    val debugReport = remember(state) {
+        """
+FRIDAY DIAGNOSTICS
+Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}
+Android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})
+Model status: ${state.status}
+Model ready: ${state.modelReady}
+Busy: ${state.busy}
+Voice status: ${state.voiceStatus}
+Speech input status: $voiceStatus
+Google connected: ${state.googleConnected}
+Google status: ${state.googleStatus}
+Prompt processing: ${state.promptProcessingStatus}
+Generation: ${state.generationStatus}
+Overall performance: ${state.performanceStatus}
+Last error: ${state.error ?: "none"}
+Chat messages loaded: ${state.messages.size}
+        """.trimIndent()
+    }
+
+    LaunchedEffect(state.messages.size, state.messages.lastOrNull()?.text) {
+        if (state.messages.isNotEmpty()) chatListState.animateScrollToItem(state.messages.lastIndex)
+    }
+
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF03172A), Night, Color(0xFF010713))))) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 24.dp, vertical = 12.dp)) {
+        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = if (state.modelReady) Color(0xFF06323B) else Color(0xFF352A21), shape = RoundedCornerShape(30.dp)) {
                     Row(Modifier.padding(horizontal = 12.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(7.dp).clip(CircleShape).background(if (state.modelReady) Neon else Color(0xFFFFB36B)))
                         Spacer(Modifier.width(7.dp))
-                        Text(if (state.modelReady) "READY" else "SETUP", color = if (state.modelReady) Neon else Color(0xFFFFC58F), fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                        Text(if (state.modelReady) "READY" else "SETUP", color = if (state.modelReady) Neon else Color(0xFFFFC58F), fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
                 Spacer(Modifier.weight(1f))
                 Text("FRIDAY", color = Neon, fontSize = 21.sp, fontWeight = FontWeight.Light, letterSpacing = 5.sp)
-                Spacer(Modifier.width(4.dp))
+                Spacer(Modifier.width(12.dp))
+                Text("DEBUG", color = Muted, fontSize = 10.sp, modifier = Modifier.clickable { debugOpen = true }.padding(4.dp))
                 Text("⋮", color = Muted, fontSize = 24.sp, modifier = Modifier.clickable { setupOpen = true }.padding(horizontal = 4.dp))
             }
 
-            Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Row(Modifier.fillMaxWidth().height(112.dp), verticalAlignment = Alignment.CenterVertically) {
                 FridayOrb(active = state.busy || voiceStatus.isNotBlank())
-                if (!latestAssistant.isNullOrBlank()) {
-                    Surface(
-                        color = Color(0xB3091B2D),
-                        shape = RoundedCornerShape(18.dp),
-                        modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 12.dp)
-                    ) {
-                        Text(latestAssistant, color = Color(0xFFD8F7FA), fontSize = 13.sp, lineHeight = 19.sp,
-                            maxLines = 4, modifier = Modifier.padding(14.dp), textAlign = TextAlign.Center)
+            }
+
+            Text("CONVERSATION", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+            LazyColumn(
+                state = chatListState,
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(bottom = 12.dp)
+            ) {
+                if (state.messages.isEmpty()) {
+                    item {
+                        Text("Your conversation will appear here. Tap the microphone to speak or type below.", color = Muted, fontSize = 13.sp, modifier = Modifier.padding(16.dp))
+                    }
+                }
+                items(state.messages) { message ->
+                    val isUser = message.role == "user"
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
+                        Surface(
+                            color = if (isUser) Color(0xFF07566A) else Color(0xFF0B1C2E),
+                            shape = RoundedCornerShape(16.dp),
+                            modifier = Modifier.widthIn(max = 320.dp)
+                        ) {
+                            Text(
+                                text = message.text.ifBlank { if (state.busy && !isUser) "FRIDAY is thinking…" else " " },
+                                color = Color(0xFFE3F8FA),
+                                fontSize = 14.sp,
+                                lineHeight = 20.sp,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
+                            )
+                        }
                     }
                 }
             }
 
-            Column(Modifier.fillMaxWidth().padding(bottom = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Surface(
-                    color = Color(0xB307172A),
-                    shape = RoundedCornerShape(28.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF12334A)),
-                    modifier = Modifier.size(width = 250.dp, height = 205.dp)
-                ) {
-                    Column(Modifier.fillMaxSize().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                        Box(
-                            Modifier.size(108.dp).clip(CircleShape)
-                                .background(Brush.radialGradient(listOf(Color(0xFF07566A), Color(0xFF03182B))))
-                                .clickable(enabled = !state.busy) { micPermission.launch(Manifest.permission.RECORD_AUDIO) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Box(Modifier.fillMaxSize().padding(2.dp).clip(CircleShape).background(Color.Transparent))
-                            Canvas(Modifier.fillMaxSize()) {
-                                drawCircle(Neon.copy(alpha = .9f), style = Stroke(width = 2.dp.toPx()))
-                                drawCircle(Neon.copy(alpha = .13f), radius = size.minDimension * .38f)
-                            }
-                            Text("♩", color = Neon, fontSize = 42.sp, fontWeight = FontWeight.Light)
-                        }
-                        Spacer(Modifier.height(14.dp))
-                        Text(if (state.busy) "THINKING…" else if (voiceStatus.isNotBlank()) voiceStatus else "Tap to Command",
-                            color = Neon, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(if (state.voiceModelReady) "KOKORO OFFLINE VOICE • READY" else if (state.systemVoiceReady) "ANDROID FALLBACK VOICE • READY" else "VOICE ENGINE • INITIALIZING",
-                            color = Muted, fontSize = 9.sp, letterSpacing = 1.4.sp)
-                    }
+            state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp, modifier = Modifier.padding(vertical = 3.dp)) }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }, enabled = !state.busy) {
+                    Text("🎙", fontSize = 22.sp)
                 }
-                Spacer(Modifier.height(18.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("⌨", color = Muted, fontSize = 20.sp, modifier = Modifier.clickable { textOpen = true }.padding(10.dp))
-                    Spacer(Modifier.width(12.dp))
-                    Text("PRIVATE BY DESIGN  •  CLOUD OFF", color = Muted, fontSize = 9.sp, letterSpacing = 1.6.sp)
-                    Spacer(Modifier.width(12.dp))
-                    Text("⚙", color = Muted, fontSize = 19.sp, modifier = Modifier.clickable { setupOpen = true }.padding(10.dp))
-                }
-                state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp, textAlign = TextAlign.Center) }
+                OutlinedTextField(
+                    value = input,
+                    onValueChange = { input = it },
+                    modifier = Modifier.weight(1f),
+                    placeholder = { Text("Message FRIDAY…", fontSize = 13.sp) },
+                    maxLines = 4,
+                    enabled = state.modelReady && !state.busy,
+                    shape = RoundedCornerShape(18.dp)
+                )
+                Spacer(Modifier.width(6.dp))
+                Button(
+                    onClick = { val text = input.trim(); if (text.isNotEmpty()) vm.send(text); input = "" },
+                    enabled = input.isNotBlank() && state.modelReady && !state.busy,
+                    colors = ButtonDefaults.buttonColors(containerColor = Neon),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                ) { Text("SEND", color = Night, fontSize = 11.sp) }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(if (voiceStatus.isNotBlank()) voiceStatus else if (state.busy) "GENERATING RESPONSE…" else "LOCAL CHAT • CLOUD OFF", color = Muted, fontSize = 9.sp)
+                Text("SETUP", color = Neon, fontSize = 10.sp, modifier = Modifier.clickable { setupOpen = true }.padding(8.dp))
             }
         }
+    }
+
+    if (debugOpen) {
+        AlertDialog(
+            onDismissRequest = { debugOpen = false },
+            containerColor = Color(0xFF0B1C2E),
+            title = { Text("Latency & debug report", color = Color.White) },
+            text = {
+                Column(Modifier.heightIn(max = 460.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Copy this report and paste it into ChatGPT when FRIDAY behaves incorrectly. It contains device/runtime status and timing, not your chat messages or Google content.", color = Muted, fontSize = 11.sp)
+                    Text(debugReport, color = Color(0xFFD8F7FA), fontSize = 11.sp, lineHeight = 17.sp)
+                    Text(state.promptProcessingStatus, color = SoftCyan, fontSize = 11.sp)
+                    Text(state.generationStatus, color = SoftCyan, fontSize = 11.sp)
+                    Text(state.performanceStatus, color = SoftCyan, fontSize = 11.sp)
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { clipboard.setText(AnnotatedString(debugReport)); debugOpen = false }) { Text("COPY REPORT", color = Neon) }
+            },
+            dismissButton = { TextButton(onClick = { debugOpen = false }) { Text("CLOSE", color = Muted) } }
+        )
     }
 
     if (setupOpen) {
