@@ -254,6 +254,16 @@ fun FridayApp(vm: FridayViewModel) {
                     }
                     state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
+                    Text("PHONE STORAGE ACCESS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text(if (allFilesGranted) "Broad shared-storage access: GRANTED" else "Broad shared-storage access: NOT GRANTED", color = Muted, fontSize = 12.sp)
+                    Text("This special access can expose most shared files, but not other apps private data. FRIDAY will not index files until you explicitly start a document feature. Google Play restricts this permission.", color = Muted, fontSize = 10.sp)
+                    Button(onClick = {
+                        val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, Uri.parse("package:" + context.packageName))
+                        runCatching { context.startActivity(intent) }.onFailure { context.startActivity(Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)) }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text(if (allFilesGranted) "Manage broad storage access" else "Grant broad storage access", color = Night) }
+                    Text("Scoped folder access: $selectedFolderLabel", color = Muted, fontSize = 11.sp)
+                    OutlinedButton(onClick = { folderPicker.launch(null) }) { Text("Select a folder instead", color = Neon) }
+                    HorizontalDivider(color = Color(0xFF1C354A))
                     Text("GOOGLE ACCOUNT & PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.googleStatus, color = Muted, fontSize = 12.sp)
                     Text("Choose your Google account, then approve read-only access to Drive, Gmail, Calendar and Contacts. Tokens stay in memory only. OAuth must match package com.friday.app and this APK signing SHA-1.", color = Muted, fontSize = 10.sp)
