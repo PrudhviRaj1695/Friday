@@ -436,7 +436,13 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                     )
                 }
             } catch (e: CancellationException) {
-                _state.update { it.copy(busy = false) }
+                _state.update { current ->
+                    val updated = current.messages.toMutableList()
+                    if (updated.isNotEmpty() && updated.last().role == "assistant") {
+                        updated[updated.lastIndex] = ChatLine("assistant", response.toString().trim().ifBlank { "Response stopped." })
+                    }
+                    current.copy(busy = false, messages = updated.takeLast(100), performanceStatus = "Generation stopped by user")
+                }
                 throw e
             } catch (e: Exception) {
                 val detail = e.message ?: e.javaClass.simpleName
