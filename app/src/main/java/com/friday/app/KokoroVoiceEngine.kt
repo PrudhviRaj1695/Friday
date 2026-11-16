@@ -27,8 +27,8 @@ class KokoroVoiceEngine(private val context: Context) {
         private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2"
         private const val MODEL_ARCHIVE = "kokoro-int8-multi-lang-v1_1.tar.bz2"
         private const val MODEL_FOLDER = "kokoro-int8-multi-lang-v1_1"
-        // kokoro-en-v0_19 speaker 6 is am_michael (male American English).
-        const val DEFAULT_VOICE_ID = 6
+        // Kokoro multilingual speaker 16 is am_michael (male American English).
+        const val DEFAULT_VOICE_ID = 16
     }
 
     @Volatile private var tts: OfflineTts? = null
@@ -124,7 +124,7 @@ class KokoroVoiceEngine(private val context: Context) {
                         voices = File(dir, "voices.bin").absolutePath,
                         tokens = File(dir, "tokens.txt").absolutePath,
                         dataDir = File(dir, "espeak-ng-data").absolutePath,
-                        lexicon = ""
+                        lexicon = File(dir, "lexicon-us-en.txt").absolutePath
                     ),
                     numThreads = (Runtime.getRuntime().availableProcessors() / 2).coerceIn(2, 4),
                     provider = "cpu",
