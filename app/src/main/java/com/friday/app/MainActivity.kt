@@ -70,6 +70,7 @@ fun FridayApp(vm: FridayViewModel) {
     var input by remember { mutableStateOf("") }
     var voiceStatus by remember { mutableStateOf("") }
     var googleActionError by remember { mutableStateOf<String?>(null) }
+    var clearMemoryConfirm by remember { mutableStateOf(false) }
     val googleAuthorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
         if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
             runCatching { Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data!!).accessToken }
@@ -239,6 +240,7 @@ fun FridayApp(vm: FridayViewModel) {
                     TextButton(onClick = { vm.disconnectGoogle() }) { Text("Delete local Google cache", color = Color(0xFFFF9CA9)) }
                     googleActionError?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
+                    TextButton(onClick = { clearMemoryConfirm = true }) { Text("Clear local chat history", color = Color(0xFFFF9CA9)) }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Speak replies (Android voice)", color = Color.White, modifier = Modifier.weight(1f))
                         Switch(checked = state.speakReplies, onCheckedChange = vm::setSpeakReplies)
@@ -253,6 +255,21 @@ fun FridayApp(vm: FridayViewModel) {
                 }
             },
             confirmButton = { TextButton(onClick = { setupOpen = false }) { Text("CLOSE", color = Neon) } }
+        )
+    }
+
+    if (clearMemoryConfirm) {
+        AlertDialog(
+            onDismissRequest = { clearMemoryConfirm = false },
+            containerColor = Color(0xFF0B1C2E),
+            title = { Text("Clear local chat history?", color = Color.White) },
+            text = { Text("This permanently deletes FRIDAY's locally stored conversation history from this app. It does not delete the separate Google context cache.", color = Muted) },
+            confirmButton = {
+                TextButton(onClick = { vm.clearMemory(); clearMemoryConfirm = false }) {
+                    Text("CLEAR HISTORY", color = Color(0xFFFF9CA9))
+                }
+            },
+            dismissButton = { TextButton(onClick = { clearMemoryConfirm = false }) { Text("CANCEL", color = Neon) } }
         )
     }
 
