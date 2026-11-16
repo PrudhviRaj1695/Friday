@@ -224,10 +224,11 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             voiceScope.launch {
                 _state.update { it.copy(voiceStatus = "Speaking with downloaded Kokoro voice…") }
                 runCatching { voiceEngine.speak(speechText, speakerId = 0, speed = 1.0f) }
-                    .onSuccess { _state.update { it.copy(voiceStatus = "Downloaded Kokoro voice ready • offline") } }
+                    .onSuccess { _state.update { it.copy(voiceStatus = "Kokoro playback completed • offline") } }
                     .onFailure { failure ->
-                        val detail = failure.message?.takeIf { it.isNotBlank() } ?: "Unknown error"
-                        _state.update { it.copy(voiceStatus = "Kokoro playback failed: $detail") }
+                        val detail = failure.message?.takeIf { it.isNotBlank() } ?: failure.javaClass.simpleName
+                        val fallbackQueued = systemVoice.speak(speechText)
+                        _state.update { it.copy(voiceStatus = if (fallbackQueued) "Kokoro failed ($detail) • trying Android voice" else "Kokoro failed ($detail) • Android voice unavailable") }
                     }
             }
         } else {
