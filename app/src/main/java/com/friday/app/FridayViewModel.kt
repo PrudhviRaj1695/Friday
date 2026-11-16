@@ -69,7 +69,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             LocalModelOption("lfm25-12", "LFM2.5 1.2B Instruct • INT4 GPU", "Larger instruction model • 736 MB • GPU artifact", "LFM2.5-1.2B-Instruct_int4_gpu.litertlm", "https://huggingface.co/litert-community/LFM2.5-1.2B-Instruct/resolve/b830c10c762dcc56e013a1ee25bef8bf6fa0dc1d/LFM2.5-1.2B-Instruct_int4_gpu.litertlm", 700_000_000L, 780_000_000L, "736 MB", "LFM Open License 1.0"),
             LocalModelOption("qwen25-15", "Qwen2.5 1.5B Instruct • INT8", "Quality-oriented option • about 1.6 GB • higher memory use", "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm", "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm", 1_450_000_000L, 1_750_000_000L, "1.6 GB", "Apache 2.0")
         )
-        private const val SYSTEM_PROMPT = """
+        private val SYSTEM_PROMPT = """
             You are FRIDAY, a private personal AI assistant. You run locally on the user's phone.
 
             NATURAL COMMUNICATION
