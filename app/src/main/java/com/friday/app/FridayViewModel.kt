@@ -139,18 +139,28 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
     // Android's installed TTS engine avoids bundled models and native audio runtimes.
     private val systemVoice = SystemVoiceEngine(app) { ready, message ->
-        _state.update { it.copy(systemVoiceReady = ready, voicePlaying = message.startsWith("Speaking"), voiceStatus = message) }
+        _state.update { it.copy(systemVoiceReady = ready, voiceStatus = message) }
     }
+    private val kokoroVoice = KokoroVoiceEngine(app)
+    @Volatile private var activeVoiceJob: kotlinx.coroutines.Job? = null
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
     private val _state = MutableStateFlow(FridayState(
         messages = store.readRecent(100),
         personalProfile = personalMemory.read(),
         cloudApprovalEnabled = prefs.getBoolean("cloud_approval", false),
         speakReplies = prefs.getBoolean("speak_replies", true),
+        voiceModelReady = kokoroVoice.isInstalled(),
+        voiceStatus = if (kokoroVoice.isInstalled()) "Kokoro neural voice installed • initializing…" else "Offline neural voice not installed • download required",
         googleStatus = if (googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false)) "Google context synced locally" else "Google account not connected",
         googleConnected = googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false)
     ))
     val state: StateFlow<FridayState> = _state.asStateFlow()
+    init {
+        if (kokoroVoice.isInstalled()) scope.launch {
+            val ready = kokoroVoice.initialize()
+            _state.update { it.copy(voiceModelReady = ready, voiceStatus = if (ready) "Kokoro neural voice ready • offline" else "Kokoro voice initialization failed") }
+        }
+    }
     private var engine: Engine? = null
     private var conversation: Conversation? = null
     @Volatile private var activeGenerationJob: kotlinx.coroutines.Job? = null
@@ -326,22 +336,49 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
     }
+    fun downloadVoiceModel() {
+        if (_state.value.voiceDownloading || _state.value.voiceModelReady) return
+        scope.launch {
+            _state.update { it.copy(voiceDownloading = true, voiceDownloadProgress = 0, voiceStatus = "Downloading Kokoro neural voice • one-time download") }
+            try {
+                val installed = kokoroVoice.download { progress ->
+                    _state.update { it.copy(voiceDownloadProgress = progress, voiceStatus = "Downloading offline voice • $progress%") }
+                }
+                val ready = installed && kokoroVoice.initialize()
+                _state.update { it.copy(voiceDownloading = false, voiceModelReady = ready, voiceStatus = if (ready) "Kokoro neural voice ready • fully offline" else "Voice model installation failed") }
+            } catch (e: Exception) {
+                _state.update { it.copy(voiceDownloading = false, voiceModelReady = false, voiceStatus = "Voice download failed: " + (e.message ?: "unknown error")) }
+            }
+        }
+    }
+
     private fun playVoice(text: String) {
         val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
         if (speechText.isBlank()) return
-        val queued = systemVoice.speak(speechText)
-        if (!queued) _state.update { it.copy(voiceStatus = "Android TTS could not queue speech. Check the selected engine and installed language voice.") }
-        else _state.update { it.copy(voiceStatus = "Speech queued • Android system voice") }
+        if (!_state.value.voiceModelReady) {
+            _state.update { it.copy(voiceStatus = "Download the offline Kokoro voice in FRIDAY setup first") }
+            return
+        }
+        activeVoiceJob?.cancel()
+        activeVoiceJob = scope.launch {
+            _state.update { it.copy(voicePlaying = true, voiceStatus = "Preparing Kokoro neural voice…") }
+            val ok = kokoroVoice.speak(speechText)
+            _state.update { it.copy(voicePlaying = false, voiceStatus = if (ok) "Kokoro neural voice • offline" else if (it.voiceStatus == "Voice stopped") "Voice stopped" else "Neural voice playback failed") }
+        }
     }
+
     fun speakSentence(text: String) {
         if (_state.value.speakReplies) playVoice(text)
     }
 
     fun testVoice() {
-        playVoice("Hello. I am FRIDAY. This is a test of the selected offline voice.")
+        playVoice("Hello. I am FRIDAY. This is my natural neural voice. I run completely offline on your phone.")
     }
 
     fun stopSpeaking() {
+        activeVoiceJob?.cancel()
+        activeVoiceJob = null
+        kokoroVoice.stop()
         systemVoice.stop()
         _state.update { it.copy(voicePlaying = false, voiceStatus = "Voice stopped") }
     }
@@ -554,6 +591,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     }
     override fun onCleared() {
         systemVoice.shutdown()
+        kokoroVoice.release()
         scope.launch {
             closeCurrent()
             dispatcher.close()
