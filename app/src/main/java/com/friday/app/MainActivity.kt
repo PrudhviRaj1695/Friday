@@ -19,6 +19,8 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -69,7 +71,7 @@ fun FridayApp(vm: FridayViewModel) {
     var voiceStatus by remember { mutableStateOf("") }
     var googleActionError by remember { mutableStateOf<String?>(null) }
     val googleAuthorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
-        if (result.resultCode == RESULT_OK && result.data != null) {
+        if (result.resultCode == android.app.Activity.RESULT_OK && result.data != null) {
             runCatching { Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data!!).accessToken }
                 .onSuccess { token -> if (!token.isNullOrBlank()) vm.syncGoogleContext(token) else googleActionError = "Google returned no access token" }
                 .onFailure { googleActionError = it.message ?: "Google authorization failed" }
@@ -191,7 +193,7 @@ fun FridayApp(vm: FridayViewModel) {
             containerColor = Color(0xFF0B1C2E),
             title = { Text("FRIDAY setup", color = Color.White) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("ON-DEVICE MODEL", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                     Text("Qwen3 0.6B • approximately 614 MB", color = Color.White, fontSize = 14.sp)
                     Text(state.status, color = Muted, fontSize = 12.sp)
