@@ -10,6 +10,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.IntentSenderRequest
+import com.google.android.gms.auth.api.identity.Identity
 import androidx.activity.viewModels
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -65,6 +67,14 @@ fun FridayApp(vm: FridayViewModel) {
     var textOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
     var voiceStatus by remember { mutableStateOf("") }
+    var googleActionError by remember { mutableStateOf<String?>(null) }
+    val googleAuthorizationLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { result ->
+        if (result.resultCode == RESULT_OK && result.data != null) {
+            runCatching { Identity.getAuthorizationClient(context).getAuthorizationResultFromIntent(result.data!!).accessToken }
+                .onSuccess { token -> if (!token.isNullOrBlank()) vm.syncGoogleContext(token) else googleActionError = "Google returned no access token" }
+                .onFailure { googleActionError = it.message ?: "Google authorization failed" }
+        } else googleActionError = "Google authorization cancelled"
+    }
     val speechRecognizer = remember {
         if (SpeechRecognizer.isRecognitionAvailable(context)) SpeechRecognizer.createSpeechRecognizer(context) else null
     }
@@ -205,6 +215,25 @@ fun FridayApp(vm: FridayViewModel) {
                         }
                     }
                     state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
+                    HorizontalDivider(color = Color(0xFF1C354A))
+                    Text("GOOGLE PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text(state.googleStatus, color = Muted, fontSize = 12.sp)
+                    Text("Read-only: Drive, Gmail, Calendar and Contacts. Approved data is summarized and cached on this phone. Access tokens are not saved.", color = Muted, fontSize = 10.sp)
+                    Button(onClick = {
+                        googleActionError = null
+                        Identity.getAuthorizationClient(context).authorize(GoogleContextSync.authorizationRequest())
+                            .addOnSuccessListener { auth ->
+                                if (auth.hasResolution()) {
+                                    val pending = auth.pendingIntent
+                                    if (pending != null) googleAuthorizationLauncher.launch(IntentSenderRequest.Builder(pending).build())
+                                    else googleActionError = "Google consent screen unavailable"
+                                } else if (!auth.accessToken.isNullOrBlank()) vm.syncGoogleContext(auth.accessToken!!)
+                                else googleActionError = "Google returned no access token"
+                            }
+                            .addOnFailureListener { googleActionError = it.message ?: "Could not start Google authorization" }
+                    }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Connect Google • Read only", color = Night) }
+                    TextButton(onClick = { vm.disconnectGoogle() }) { Text("Disconnect and delete local Google cache", color = Color(0xFFFF9CA9)) }
+                    googleActionError?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("Speak replies (Kokoro local)", color = Color.White, modifier = Modifier.weight(1f))
