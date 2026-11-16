@@ -24,11 +24,11 @@ import java.net.URL
  */
 class KokoroVoiceEngine(private val context: Context) {
     companion object {
-        private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-multi-lang-v1_1.tar.bz2"
-        private const val MODEL_ARCHIVE = "kokoro-int8-multi-lang-v1_1.tar.bz2"
-        private const val MODEL_FOLDER = "kokoro-int8-multi-lang-v1_1"
-        // Kokoro multilingual speaker 16 is am_michael (male American English).
-        const val DEFAULT_VOICE_ID = 16
+        private const val MODEL_URL = "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/kokoro-int8-en-v0_19.tar.bz2"
+        private const val MODEL_ARCHIVE = "kokoro-int8-en-v0_19.tar.bz2"
+        private const val MODEL_FOLDER = "kokoro-int8-en-v0_19"
+        // English model speaker 6 is am_michael (male American English).
+        const val DEFAULT_VOICE_ID = 6
     }
 
     @Volatile private var tts: OfflineTts? = null
