@@ -20,7 +20,7 @@ class LocalChatStore(context: Context) : SQLiteOpenHelper(context, "friday_memor
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) = Unit
     @Synchronized fun append(role: String, content: String) {
         writableDatabase.execSQL("INSERT INTO messages(role, content, created_at) VALUES(?, ?, ?)",
-            arrayOf(role, content, System.currentTimeMillis()))
+            arrayOf<Any>(role, content, System.currentTimeMillis()))
     }
     @Synchronized fun readAll(): List<ChatLine> {
         val result = mutableListOf<ChatLine>()
