@@ -65,7 +65,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val _state = MutableStateFlow(FridayState(
         messages = store.readAll(),
         cloudApprovalEnabled = prefs.getBoolean("cloud_approval", false),
-        speakReplies = prefs.getBoolean("speak_replies", true)
+        speakReplies = prefs.getBoolean("speak_replies", true),
+        googleStatus = if (googleContext.isNotBlank()) "Google context available locally" else "Google account not connected"
     ))
     val state: StateFlow<FridayState> = _state.asStateFlow()
     private var engine: Engine? = null
