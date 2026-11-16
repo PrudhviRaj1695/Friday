@@ -27,9 +27,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+data class LocalModelOption(val id: String, val name: String, val description: String, val fileName: String, val downloadUrl: String, val minBytes: Long, val maxBytes: Long, val expectedSize: String, val license: String, val sha256: String? = null)
+
 data class FridayState(
     val messages: List<ChatLine> = emptyList(),
     val modelReady: Boolean = false,
+    val selectedModelId: String = "qwen3-06",
     val downloading: Boolean = false,
     val downloadProgress: Int = 0,
     val busy: Boolean = false,
@@ -54,10 +57,11 @@ data class FridayState(
 
 class FridayViewModel(app: Application) : AndroidViewModel(app) {
     companion object {
-        const val MODEL_NAME = "Qwen3-0.6B.litertlm"
-        const val MODEL_MIN_SIZE_BYTES = 500_000_000L
-        const val MODEL_MAX_SIZE_BYTES = 700_000_000L
-        const val MODEL_URL = "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm"
+        val MODEL_OPTIONS = listOf(
+            LocalModelOption("qwen3-06", "Qwen3 0.6B", "Fast, compact everyday assistant • current default", "Qwen3-0.6B.litertlm", "https://huggingface.co/litert-community/Qwen3-0.6B/resolve/main/Qwen3-0.6B.litertlm", 600_000_000L, 630_000_000L, "614 MB", "Apache 2.0", "c5f39b4191926786c3e6668b62af4d6eb15248dfc7a5348252a9b406f33f2108"),
+            LocalModelOption("lfm25-12", "LFM2.5 1.2B Instruct • INT4 GPU", "Larger instruction model • 736 MB • GPU artifact", "LFM2.5-1.2B-Instruct_int4_gpu.litertlm", "https://huggingface.co/litert-community/LFM2.5-1.2B-Instruct/resolve/b830c10c762dcc56e013a1ee25bef8bf6fa0dc1d/LFM2.5-1.2B-Instruct_int4_gpu.litertlm", 700_000_000L, 780_000_000L, "736 MB", "LFM Open License 1.0", "96041e6c72b1d2e9b73a122870606bbf18a3819bf14c43c3f2b74685ed62c24d"),
+            LocalModelOption("qwen25-15", "Qwen2.5 1.5B Instruct • INT8", "Quality-oriented option • about 1.6 GB • higher memory use", "Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm", "https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm", 1_450_000_000L, 1_750_000_000L, "1.6 GB", "Apache 2.0")
+        )
         private const val SYSTEM_PROMPT = "You are FRIDAY, a private personal AI assistant. Be practical, accurate, calm and concise. Do not claim you performed actions you did not perform. You run locally on the user's phone."
         private const val MAX_HISTORY_MESSAGES = 8
         private const val MAX_HISTORY_CHARS = 900
@@ -85,26 +89,39 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private var conversation: Conversation? = null
 
     init {
-        val model = modelFile()
-        if (model.exists() && model.length() in MODEL_MIN_SIZE_BYTES..MODEL_MAX_SIZE_BYTES) {
-            loadModel(model.absolutePath)
-        } else _state.update { it.copy(status = "Download the on-device model to begin") }
+        val selectedId = prefs.getString("selected_model_id", "qwen3-06") ?: "qwen3-06"
+        val option = MODEL_OPTIONS.firstOrNull { it.id == selectedId } ?: MODEL_OPTIONS.first()
+        _state.update { it.copy(selectedModelId = option.id) }
+        val model = modelFile(option)
+        if (model.exists() && model.length() in option.minBytes..option.maxBytes) loadModel(model.absolutePath, option.id)
+        else _state.update { it.copy(status = "Download " + option.name + " to begin") }
     }
 
-    private fun modelFile(): File {
+    private fun modelFile(option: LocalModelOption): File {
         val dir = File(getApplication<Application>().filesDir, "models")
         if (!dir.exists()) dir.mkdirs()
-        return File(dir, MODEL_NAME)
+        return File(dir, option.fileName)
+    }
+
+    fun selectModel(modelId: String) {
+        if (_state.value.busy || _state.value.downloading) return
+        val option = MODEL_OPTIONS.firstOrNull { it.id == modelId } ?: return
+        prefs.edit().putString("selected_model_id", option.id).apply()
+        val file = modelFile(option)
+        _state.update { it.copy(selectedModelId = option.id, modelReady = false, status = if (file.exists() && file.length() in option.minBytes..option.maxBytes) "Model downloaded • loading…" else option.name + " not downloaded", error = null) }
+        if (file.exists() && file.length() in option.minBytes..option.maxBytes) loadModel(file.absolutePath, option.id)
+        else scope.launch { closeCurrent() }
     }
 
     fun downloadModel() {
-        if (_state.value.downloading || _state.value.modelReady) return
+        if (_state.value.downloading || _state.value.busy) return
+        val option = MODEL_OPTIONS.firstOrNull { it.id == _state.value.selectedModelId } ?: MODEL_OPTIONS.first()
         scope.launch {
-            _state.update { it.copy(downloading = true, downloadProgress = 0, error = null, status = "Downloading model…") }
+            _state.update { it.copy(downloading = true, downloadProgress = 0, error = null, status = "Downloading " + option.name + "…") }
             try {
                 withContext(Dispatchers.IO) {
-                    val target = modelFile()
-                    val temp = File(target.parentFile, "$MODEL_NAME.part")
+                    val target = modelFile(option)
+                    val temp = File(target.parentFile, option.fileName + ".part")
                     val connection = (URL(MODEL_URL).openConnection() as HttpURLConnection).apply {
                         connectTimeout = 20_000
                         readTimeout = 120_000
