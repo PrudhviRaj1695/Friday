@@ -234,7 +234,7 @@ fun FridayApp(vm: FridayViewModel) {
                             }
                             .addOnFailureListener { googleActionError = it.message ?: "Could not start Google authorization" }
                     }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Connect Google • Read only", color = Night) }
-                    TextButton(onClick = { vm.disconnectGoogle() }) { Text("Disconnect and delete local Google cache", color = Color(0xFFFF9CA9)) }
+                    TextButton(onClick = { vm.disconnectGoogle() }) { Text("Delete local Google cache", color = Color(0xFFFF9CA9)) }
                     googleActionError?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Row(verticalAlignment = Alignment.CenterVertically) {
