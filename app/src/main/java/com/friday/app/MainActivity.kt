@@ -341,7 +341,7 @@ Last error: ${state.error ?: "none"}
                     val isUser = message.role == "user"
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
                         Surface(
-                            color = if (isUser) Color(0xFF49135B) else Color(0xFF17101B),
+                            color = if (isUser) Color(0xFF292448) else Color(0xFF151A29),
                             shape = RoundedCornerShape(20.dp),
                             border = androidx.compose.foundation.BorderStroke(1.dp, (if (isUser) PinkGlow else Violet).copy(alpha = .30f)),
                             modifier = Modifier.widthIn(max = 320.dp)
@@ -351,8 +351,8 @@ Last error: ${state.error ?: "none"}
                                     .replace("**", "")
                                     .ifBlank { if (state.busy && !isUser) "FRIDAY is thinking…" else " " },
                                 color = Color(0xFFF8EFFB),
-                                fontSize = 14.sp,
-                                lineHeight = 21.sp,
+                                fontSize = state.chatFontSize.sp,
+                                lineHeight = (state.chatFontSize * 1.48f).sp,
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 11.dp)
                             )
                         }
@@ -361,7 +361,7 @@ Last error: ${state.error ?: "none"}
             }
 
             state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp, modifier = Modifier.padding(vertical = 3.dp)) }
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).background(Color(0xFF130B17), RoundedCornerShape(28.dp)).border(1.dp, Violet.copy(alpha = .55f), RoundedCornerShape(28.dp)).padding(horizontal = 6.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 8.dp).background(Color(0xFF111626), RoundedCornerShape(28.dp)).border(1.dp, Violet.copy(alpha = .55f), RoundedCornerShape(28.dp)).padding(horizontal = 6.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = {
                     if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                         (context as? android.app.Activity)?.startActivityForResult(Intent(context, VisionCameraActivity::class.java), 7401)
