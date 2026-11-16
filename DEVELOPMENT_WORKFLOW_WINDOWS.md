@@ -105,7 +105,7 @@ Prefer short-lived feature branches or ensure the working tree is clean before r
 
 ## Device and emulator strategy for this laptop
 
-The known laptop has 16 GB RAM. Use the S25 Ultra as the primary live device to avoid the extra memory cost of an emulator. Keep one lightweight API 35 emulator available for automated UI/instrumentation tests if the laptop handles it comfortably. GitHub Actions should run clean builds and emulator smoke tests after commits.
+The known laptop has 16 GB RAM. Use the S25 Ultra as the primary live device to avoid the extra memory cost of an emulator. Keep one lightweight API 35 emulator available for automated UI/instrumentation tests if the laptop handles it comfortably. GitHub Actions runs a clean Android APK build after commits; emulator smoke tests have been removed.
 
 The emulator cannot validate S25 Ultra GPU/NPU acceleration, thermal throttling, battery impact or Kokoro performance. Those require the physical phone.
 
