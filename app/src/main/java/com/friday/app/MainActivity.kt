@@ -83,6 +83,7 @@ fun FridayApp(vm: FridayViewModel) {
     var voiceStatus by remember { mutableStateOf("") }
     var googleActionError by remember { mutableStateOf<String?>(null) }
     var clearMemoryConfirm by remember { mutableStateOf(false) }
+    var modelMenuOpen by remember { mutableStateOf(false) }
     var allFilesGranted by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     var selectedFolderLabel by remember { mutableStateOf(context.getSharedPreferences("friday_storage", 0).getString("tree_uri", null)?.let { "A folder is linked" } ?: "No folder selected") }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -305,10 +306,43 @@ Chat messages loaded: ${state.messages.size}
             title = { Text("FRIDAY setup", color = Color.White) },
             text = {
                 Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("ON-DEVICE MODEL", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                    Text("Qwen3 0.6B • approximately 614 MB", color = Color.White, fontSize = 14.sp)
+                    Text("LOCAL MODEL LIBRARY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    val selectedModel = FridayViewModel.MODEL_OPTIONS.firstOrNull { it.id == state.selectedModelId } ?: FridayViewModel.MODEL_OPTIONS.first()
+                    Text(selectedModel.name + " • " + selectedModel.expectedSize, color = Color.White, fontSize = 14.sp)
+                    Text(selectedModel.description, color = Muted, fontSize = 11.sp)
+                    Text("License: " + selectedModel.license, color = Muted, fontSize = 10.sp)
+                    Box {
+                        OutlinedButton(onClick = { modelMenuOpen = true }, enabled = !state.busy && !state.downloading) {
+                            Text("Choose a local model", color = Neon)
+                        }
+                        DropdownMenu(expanded = modelMenuOpen, onDismissRequest = { modelMenuOpen = false }) {
+                            FridayViewModel.MODEL_OPTIONS.forEach { option ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(option.name)
+                                            Text(option.expectedSize + " • " + if (vm.isModelInstalled(option.id)) "Downloaded" else "Not downloaded", fontSize = 11.sp, color = Muted)
+                                        }
+                                    },
+                                    onClick = { modelMenuOpen = false; vm.selectModel(option.id) },
+                                    enabled = !state.busy && !state.downloading
+                                )
+                            }
+                        }
+                    }
                     Text(state.status, color = Muted, fontSize = 12.sp)
                     Text(state.performanceStatus, color = SoftCyan, fontSize = 10.sp, lineHeight = 15.sp)
+                    if (state.downloading) {
+                        LinearProgressIndicator(progress = { state.downloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
+                        Text("Downloading " + state.downloadProgress + "%", color = Muted, fontSize = 12.sp)
+                    } else if (!vm.isModelInstalled(state.selectedModelId)) {
+                        Button(onClick = { vm.downloadModel() }, enabled = !state.busy, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
+                            Text("Download selected model", color = Night)
+                        }
+                    } else if (!state.modelReady) {
+                        Text("Model is installed and will load when selected.", color = Muted, fontSize = 11.sp)
+                    }
+                    Text("Models stay on this phone in app-private storage. Download only one at a time; larger models need more free storage and RAM.", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("VOICE OUTPUT • ANDROID SYSTEM TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
