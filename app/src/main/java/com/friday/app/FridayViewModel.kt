@@ -60,7 +60,13 @@ data class FridayState(
     val documentsExtracted: Int = 0,
     val documentsFailed: Int = 0,
     val documentStatus: String = "Documents not scanned",
-    val personalProfile: PersonalProfile = PersonalProfile()
+    val personalProfile: PersonalProfile = PersonalProfile(),
+    val responseLanguage: String = "English",
+    val activePersonality: String = "Friendly",
+    val personalityPrompt: String = "",
+    val creativity: Float = 0.7f,
+    val contentStyle: String = "Balanced",
+    val chatFontSize: Int = 16
 )
 
 class FridayViewModel(app: Application) : AndroidViewModel(app) {
@@ -148,7 +154,13 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         voiceModelReady = kokoroVoice.isInstalled(),
         voiceStatus = if (kokoroVoice.isInstalled()) "Kokoro neural voice installed • initializing…" else "Offline neural voice not installed • download required",
         googleStatus = if (googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false)) "Google context synced locally" else "Google account not connected",
-        googleConnected = googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false)
+        googleConnected = googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false),
+        responseLanguage = prefs.getString("response_language", "English") ?: "English",
+        activePersonality = prefs.getString("active_personality", "Friendly") ?: "Friendly",
+        personalityPrompt = prefs.getString("personality_prompt", "") ?: "",
+        creativity = prefs.getFloat("creativity", 0.7f),
+        contentStyle = prefs.getString("content_style", "Balanced") ?: "Balanced",
+        chatFontSize = prefs.getInt("chat_font_size", 16)
     ))
     val state: StateFlow<FridayState> = _state.asStateFlow()
     init {
@@ -173,7 +185,21 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             "Custom instructions: " + p.customInstructions,
             "User-approved notes: " + p.learnedNotes
         ).filter { it.substringAfter(": ").isNotBlank() }
-        return SYSTEM_PROMPT + if (details.isEmpty()) "" else "\n\nPersonalization profile (user-controlled; follow when relevant):\n" + details.joinToString("\n")
+        val languageRule = if (_state.value.responseLanguage == "Telugu") "\\n\\nRESPONSE LANGUAGE: Reply in natural Telugu using Telugu script. Keep product names, code and technical identifiers in English where appropriate. Do not switch to English unless asked." else "\\n\\nRESPONSE LANGUAGE: Reply in English unless the user explicitly asks for another language."
+        val styleRule = when (_state.value.contentStyle) {
+            "Strict" -> "\\nCONTENT STYLE: Keep language formal and clean. Avoid profanity and crude expressions."
+            "Relaxed" -> "\\nCONTENT STYLE: Use natural, informal language when appropriate. Do not force politeness or sanitize ordinary adult vocabulary. Safety boundaries still apply."
+            else -> "\\nCONTENT STYLE: Use natural everyday language and avoid unnecessary profanity."
+        }
+        val creativityRule = when {
+            _state.value.creativity < 0.35f -> "Be conservative, precise and literal. Prefer established facts and concise answers."
+            _state.value.creativity > 1.25f -> "Be imaginative and explore unconventional options, while clearly marking speculation."
+            else -> "Balance originality with accuracy. Offer useful ideas without inventing facts."
+        }
+        val personality = _state.value.personalityPrompt.trim()
+        return SYSTEM_PROMPT + languageRule + styleRule + "\\nCREATIVE STYLE: " + creativityRule +
+            (if (personality.isNotBlank()) "\\n\\nACTIVE PERSONALITY (" + _state.value.activePersonality + "):\\n" + personality else "") +
+            (if (details.isEmpty()) "" else "\\n\\nPersonalization profile (user-controlled; follow when relevant):\\n" + details.joinToString("\\n"))
     }
 
     fun savePersonalProfile(profile: PersonalProfile) {
@@ -561,6 +587,38 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     fun setSpeakReplies(enabled: Boolean) {
         prefs.edit().putBoolean("speak_replies", enabled).apply()
         _state.update { it.copy(speakReplies = enabled) }
+    }
+
+    fun setResponseLanguage(value: String) {
+        val safe = if (value == "Telugu") "Telugu" else "English"
+        prefs.edit().putString("response_language", safe).apply()
+        _state.update { it.copy(responseLanguage = safe) }
+        refreshPromptIfIdle()
+    }
+    fun setPersonality(name: String, prompt: String) {
+        prefs.edit().putString("active_personality", name).putString("personality_prompt", prompt).apply()
+        _state.update { it.copy(activePersonality = name, personalityPrompt = prompt) }
+        refreshPromptIfIdle()
+    }
+    fun setCreativity(value: Float) {
+        val safe = value.coerceIn(0f, 2f)
+        prefs.edit().putFloat("creativity", safe).apply()
+        _state.update { it.copy(creativity = safe) }
+        refreshPromptIfIdle()
+    }
+    fun setContentStyle(value: String) {
+        val safe = value.takeIf { it in listOf("Strict", "Balanced", "Relaxed") } ?: "Balanced"
+        prefs.edit().putString("content_style", safe).apply()
+        _state.update { it.copy(contentStyle = safe) }
+        refreshPromptIfIdle()
+    }
+    fun setChatFontSize(value: Int) {
+        val safe = value.coerceIn(14, 24)
+        prefs.edit().putInt("chat_font_size", safe).apply()
+        _state.update { it.copy(chatFontSize = safe) }
+    }
+    private fun refreshPromptIfIdle() {
+        if (_state.value.modelReady && !_state.value.busy) scope.launch { rebuildConversationFromRecentHistory() }
     }
     fun clearMemory() {
         store.clear()
