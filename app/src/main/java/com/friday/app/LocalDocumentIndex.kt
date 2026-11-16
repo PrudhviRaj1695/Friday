@@ -84,7 +84,8 @@ object LocalDocumentIndex {
                 val bitmap = BitmapFactory.decodeStream(input) ?: return ""
                 val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
                 try { Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text } finally { recognizer.close(); bitmap.recycle() }
-            }\n            "pdf" -> PDDocument.load(input).use { doc ->
+            }
+            "pdf" -> PDDocument.load(input).use { doc ->
                 val stripper = PDFTextStripper().apply { sortByPosition = true }
                 buildString {
                     for (page in 1..doc.numberOfPages) {
