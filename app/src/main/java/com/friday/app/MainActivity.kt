@@ -366,12 +366,25 @@ Last error: ${state.error ?: "none"}
                     shape = RoundedCornerShape(18.dp)
                 )
                 Spacer(Modifier.width(6.dp))
-                Button(
-                    onClick = { val text = input.trim(); if (text.isNotEmpty()) vm.send(text); input = "" },
-                    enabled = input.isNotBlank() && state.modelReady && !state.busy,
-                    colors = ButtonDefaults.buttonColors(containerColor = Neon),
-                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-                ) { Text("SEND", color = Night, fontSize = 11.sp) }
+                if (state.busy) {
+                    Button(
+                        onClick = { vm.stopGeneration() },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF8E2638),
+                            contentColor = Color.White
+                        ),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp)
+                    ) {
+                        Text("STOP", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Button(
+                        onClick = { val text = input.trim(); if (text.isNotEmpty()) vm.send(text); input = "" },
+                        enabled = input.isNotBlank() && state.modelReady,
+                        colors = ButtonDefaults.buttonColors(containerColor = Neon),
+                        contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
+                    ) { Text("SEND", color = Night, fontSize = 11.sp) }
+                }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(if (voiceStatus.isNotBlank()) voiceStatus else if (state.busy) "GENERATING RESPONSE…" else "LOCAL CHAT • CLOUD OFF", color = Muted, fontSize = 9.sp)
