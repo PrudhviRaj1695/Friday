@@ -36,7 +36,11 @@ data class FridayState(
     val error: String? = null,
     val status: String = "Model not installed",
     val cloudApprovalEnabled: Boolean = false,
-    val speakReplies: Boolean = true
+    val speakReplies: Boolean = true,
+    val voiceModelReady: Boolean = false,
+    val voiceDownloading: Boolean = false,
+    val voiceDownloadProgress: Int = 0,
+    val voiceStatus: String = "Natural voice model not installed"
 )
 
 class FridayViewModel(app: Application) : AndroidViewModel(app) {
@@ -52,6 +56,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val executor = Executors.newSingleThreadExecutor()
     private val dispatcher = executor.asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val voiceExecutor = Executors.newSingleThreadExecutor()
+    private val voiceDispatcher = voiceExecutor.asCoroutineDispatcher()
+    private val voiceScope = CoroutineScope(SupervisorJob() + voiceDispatcher)
+    private val voiceEngine = LocalVoiceEngine(app)
     private val _state = MutableStateFlow(FridayState(
         messages = store.readAll(),
         cloudApprovalEnabled = prefs.getBoolean("cloud_approval", false),
@@ -62,6 +70,14 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private var conversation: Conversation? = null
 
     init {
+        if (voiceEngine.isInstalled()) {
+            _state.update { it.copy(voiceModelReady = true, voiceStatus = "Kokoro natural voice installed") }
+            voiceScope.launch {
+                runCatching { voiceEngine.initialize() }.onFailure { failure ->
+                    _state.update { current -> current.copy(voiceModelReady = false, voiceStatus = failure.message ?: "Voice initialization failed") }
+                }
+            }
+        }
         val model = modelFile()
         if (model.exists() && model.length() in MODEL_MIN_SIZE_BYTES..MODEL_MAX_SIZE_BYTES) {
             loadModel(model.absolutePath)
@@ -157,6 +173,37 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun downloadVoiceModel() {
+        if (_state.value.voiceDownloading || _state.value.voiceModelReady) return
+        voiceScope.launch {
+            _state.update { it.copy(voiceDownloading = true, voiceDownloadProgress = 0, voiceStatus = "Downloading Kokoro natural voice…", error = null) }
+            try {
+                withContext(Dispatchers.IO) {
+                    voiceEngine.download { progress -> _state.update { it.copy(voiceDownloadProgress = progress) } }
+                }
+                _state.update { it.copy(voiceStatus = "Loading natural voice model…") }
+                voiceEngine.initialize()
+                _state.update { it.copy(voiceDownloading = false, voiceModelReady = true, voiceDownloadProgress = 100, voiceStatus = "Kokoro natural voice ready") }
+            } catch (e: Exception) {
+                _state.update { it.copy(voiceDownloading = false, voiceModelReady = false, voiceStatus = "Voice setup failed", error = e.message ?: "Kokoro setup failed") }
+            }
+        }
+    }
+
+    fun speakSentence(text: String) {
+        if (!_state.value.voiceModelReady || !_state.value.speakReplies || text.isBlank()) return
+        voiceScope.launch {
+            try {
+                val speechText = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
+                if (speechText.isNotBlank()) voiceEngine.speak(speechText, speakerId = 0, speed = 1.02f)
+            } catch (e: Exception) {
+                _state.update { it.copy(voiceStatus = e.message ?: "Natural voice playback failed") }
+            }
+        }
+    }
+
+    fun stopSpeaking() { voiceEngine.stop() }
+
     fun send(text: String) {
         val clean = text.trim()
         if (clean.isEmpty() || !_state.value.modelReady || _state.value.busy) return
@@ -164,9 +211,19 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(busy = true, error = null, messages = it.messages + ChatLine("user", clean) + ChatLine("assistant", "")) }
             store.append("user", clean)
             val response = StringBuilder()
+            var spokenUntil = 0
             try {
                 checkNotNull(conversation).sendMessageAsync(clean).collect { chunk ->
                     response.append(chunk.toString())
+                    if (_state.value.speakReplies && _state.value.voiceModelReady) {
+                        val snapshot = response.toString()
+                        val boundary = maxOf(snapshot.lastIndexOf('.'), snapshot.lastIndexOf('?'), snapshot.lastIndexOf('!'), snapshot.lastIndexOf('\n'))
+                        if (boundary >= spokenUntil) {
+                            val sentence = snapshot.substring(spokenUntil, boundary + 1).trim()
+                            if (sentence.length >= 3) speakSentence(sentence)
+                            spokenUntil = boundary + 1
+                        }
+                    }
                     _state.update { current ->
                         val updated = current.messages.toMutableList()
                         if (updated.isNotEmpty() && updated.last().role == "assistant") updated[updated.lastIndex] = ChatLine("assistant", response.toString())
@@ -175,6 +232,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 }
                 val answer = response.toString().trim()
                 if (answer.isNotEmpty()) store.append("assistant", answer)
+                if (_state.value.speakReplies && _state.value.voiceModelReady && spokenUntil < answer.length) speakSentence(answer.substring(spokenUntil))
                 _state.update { it.copy(busy = false) }
             } catch (e: CancellationException) {
                 _state.update { it.copy(busy = false) }
@@ -204,6 +262,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         engine = null
     }
     override fun onCleared() {
+        voiceEngine.stop()
+        voiceScope.launch { voiceEngine.release(); voiceDispatcher.close(); voiceExecutor.shutdown() }
         scope.launch {
             closeCurrent()
             dispatcher.close()
