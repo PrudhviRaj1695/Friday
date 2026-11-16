@@ -310,17 +310,10 @@ Chat messages loaded: ${state.messages.size}
                     Text(state.status, color = Muted, fontSize = 12.sp)
                     Text(state.performanceStatus, color = SoftCyan, fontSize = 10.sp, lineHeight = 15.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("VOICE OUTPUT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("VOICE OUTPUT • ANDROID SYSTEM TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
-                    Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test voice", color = Night) }
-                    if (state.voiceDownloading) {
-                        LinearProgressIndicator(progress = { state.voiceDownloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
-                        Text("Downloading voice model: " + state.voiceDownloadProgress + "%", color = Muted, fontSize = 12.sp)
-                    } else if (!state.voiceModelReady) {
-                        Button(onClick = { vm.downloadVoiceModel() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) {
-                            Text("Download offline Kokoro voice", color = Night)
-                        }
-                    }
+                    Text("Uses the speech engine and voices installed on your phone. No Kokoro download or extra voice model.", color = Muted, fontSize = 10.sp)
+                    Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test Android voice", color = Night) }
                     if (state.downloading) {
                         LinearProgressIndicator(progress = { state.downloadProgress / 100f }, modifier = Modifier.fillMaxWidth(), color = Neon)
                         Text("Downloading ${state.downloadProgress}%", color = Muted, fontSize = 12.sp)
