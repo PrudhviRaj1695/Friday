@@ -558,7 +558,7 @@ Last error: ${state.error ?: "none"}
                             Text("Download offline neural voice model", color = Night)
                         }
                     } else {
-                        Text("Voice: Michael • male American English. Indian-English male voice is not included in this model.", color = Muted, fontSize = 10.sp)
+                        Text("Voice: Michael • male American English. This model does not include an Indian-English male accent.", color = Muted, fontSize = 10.sp)
                         Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test neural voice", color = Night) }
                     }
                     HorizontalDivider(color = Color(0xFF1C354A))
