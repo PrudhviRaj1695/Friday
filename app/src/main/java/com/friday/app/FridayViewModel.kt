@@ -65,7 +65,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         private const val SYSTEM_PROMPT = "You are FRIDAY, a private personal AI assistant. Be practical, accurate, calm and concise. Do not claim you performed actions you did not perform. You run locally on the user's phone."
         private const val MAX_HISTORY_MESSAGES = 8
         private const val MAX_HISTORY_CHARS = 900
-        private const val MAX_USER_PROMPT_CHARS = 4000
+        private const val MAX_USER_PROMPT_CHARS = 12000
     }
     private val store = LocalChatStore(app)
     private val prefs = app.getSharedPreferences("friday_settings", 0)
@@ -295,7 +295,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(scanningDocuments = true, documentStatus = "Scanning approved shared storage…", error = null) }
             try {
                 val found = withContext(Dispatchers.IO) { LocalDocumentIndex.scan(getApplication()) }
-                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentStatus = "Found ${found.size} files • text indexed where supported") }
+                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentStatus = "Found ${found.size} files • ${found.count { it.content.isNotBlank() }} extracted and searchable") }
             } catch (e: Exception) {
                 _state.update { it.copy(scanningDocuments = false, documentStatus = e.message ?: "Document scan failed") }
             }
@@ -319,19 +319,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun documentContextFor(query: String): String {
-        val docs = _state.value.localDocuments.filter { it.content.isNotBlank() }
-        if (docs.isEmpty()) return ""
-        val terms = query.lowercase().split(Regex("[^a-z0-9]+")).filter { it.length > 2 }.toSet()
-        val ranked = docs.map { doc ->
-            val haystack = (doc.name + " " + doc.content).lowercase()
-            doc to terms.count { it in haystack }
-        }.filter { it.second > 0 }.sortedByDescending { it.second }.take(3)
-        val selected = if (ranked.isNotEmpty()) ranked else if (
-            listOf("document", "file", "pdf", "contents", "says", "read").any { it in query.lowercase() }
-        ) docs.take(3).map { it to 0 } else emptyList()
-        return selected.joinToString("\n\n") { (doc, _) ->
-            "DOCUMENT: ${doc.name}\nPATH: ${doc.location}\nCONTENT EXCERPT:\n${doc.content.take(9000)}"
-        }.take(24000)
+        val docs = _state.value.localDocuments
+        if (docs.none { it.content.isNotBlank() }) return ""
+        val results = LocalDocumentRetriever.retrieve(query, docs, limit = 5)
+        return LocalDocumentRetriever.formatContext(results, maxChars = 10_000)
     }
     fun send(text: String) {
         val clean = text.trim()
