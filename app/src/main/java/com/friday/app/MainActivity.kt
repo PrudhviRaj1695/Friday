@@ -197,6 +197,7 @@ fun FridayApp(vm: FridayViewModel) {
                     Text("ON-DEVICE MODEL", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
                     Text("Qwen3 0.6B • approximately 614 MB", color = Color.White, fontSize = 14.sp)
                     Text(state.status, color = Muted, fontSize = 12.sp)
+                    Text(state.performanceStatus, color = SoftCyan, fontSize = 10.sp, lineHeight = 15.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("NATURAL LOCAL VOICE • KOKORO", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
