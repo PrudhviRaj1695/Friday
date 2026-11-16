@@ -143,8 +143,10 @@ fun FridayApp(vm: FridayViewModel) {
             }
             override fun onResults(results: Bundle?) {
                 val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!spoken.isNullOrBlank()) vm.send(spoken)
-                voiceStatus = ""
+                if (!spoken.isNullOrBlank()) {
+                    if (state.modelReady) vm.send(spoken) else voiceStatus = "LOCAL MODEL IS NOT READY"
+                    if (state.modelReady) voiceStatus = ""
+                } else voiceStatus = "NO SPEECH RECOGNIZED • TAP MIC AND TRY AGAIN"
             }
             override fun onPartialResults(partialResults: Bundle?) = Unit
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
