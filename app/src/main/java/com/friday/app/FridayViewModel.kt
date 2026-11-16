@@ -52,6 +52,12 @@ data class FridayState(
     val generationStatus: String = "Not measured",
     val localDocuments: List<LocalDocument> = emptyList(),
     val scanningDocuments: Boolean = false,
+    val documentProgress: Int = 0,
+    val documentsProcessed: Int = 0,
+    val documentsTotal: Int = 0,
+    val documentCurrentFile: String = "",
+    val documentsExtracted: Int = 0,
+    val documentsFailed: Int = 0,
     val documentStatus: String = "Documents not scanned",
     val personalProfile: PersonalProfile = PersonalProfile()
 )
@@ -321,12 +327,24 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     fun scanLocalDocuments() {
         if (_state.value.scanningDocuments) return
         scope.launch {
-            _state.update { it.copy(scanningDocuments = true, documentStatus = "Scanning approved shared storage…", error = null) }
+            _state.update { it.copy(scanningDocuments = true, documentProgress = 0, documentsProcessed = 0, documentsTotal = 0, documentsExtracted = 0, documentsFailed = 0, documentCurrentFile = "Preparing scan…", documentStatus = "Preparing document scan…", error = null) }
             try {
-                val found = withContext(Dispatchers.IO) { LocalDocumentIndex.scan(getApplication()) }
-                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentStatus = "Found ${found.size} files • ${found.count { it.content.isNotBlank() }} extracted and searchable") }
+                val found = withContext(Dispatchers.IO) {
+                    LocalDocumentIndex.scan(getApplication()) { progress ->
+                        _state.update { it.copy(
+                            documentProgress = progress.percent,
+                            documentsProcessed = progress.processed,
+                            documentsTotal = progress.total,
+                            documentCurrentFile = progress.currentFile,
+                            documentsExtracted = progress.extracted,
+                            documentsFailed = progress.failed,
+                            documentStatus = if (progress.total == 0) "No supported documents found" else "Scanning ${progress.processed}/${progress.total} • ${progress.extracted} extracted • ${progress.failed} failed"
+                        ) }
+                    }
+                }
+                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentProgress = 100, documentCurrentFile = "", documentStatus = "Found ${found.size} files • ${found.count { it.content.isNotBlank() }} extracted and searchable") }
             } catch (e: Exception) {
-                _state.update { it.copy(scanningDocuments = false, documentStatus = e.message ?: "Document scan failed") }
+                _state.update { it.copy(scanningDocuments = false, documentCurrentFile = "", documentStatus = e.message ?: "Document scan failed") }
             }
         }
     }
