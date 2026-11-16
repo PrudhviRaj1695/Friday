@@ -112,7 +112,7 @@ class LocalVoiceEngine(private val context: Context) {
                     dataDir = File(voiceDir, "espeak-ng-data").absolutePath,
                     lang = "eng"
                 ),
-                numThreads = 4,
+                numThreads = 2,
                 debug = false,
                 provider = "cpu"
             ),
