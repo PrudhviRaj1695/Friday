@@ -19,16 +19,16 @@ data class PersonalProfile(
     val workContext: String = "",
     val interests: String = "",
     val customInstructions: String = "",
-    val learnedNotes: String = ""
+    val learnedNotes: String = "",\n    val fineTuneExamples: String = ""
 ) {
     fun toJson() = JSONObject().put("displayName",displayName).put("communicationStyle",communicationStyle)
         .put("responsePreferences",responsePreferences).put("goals",goals).put("workContext",workContext)
-        .put("interests",interests).put("customInstructions",customInstructions).put("learnedNotes",learnedNotes)
+        .put("interests",interests).put("customInstructions",customInstructions).put("learnedNotes",learnedNotes).put("fineTuneExamples",fineTuneExamples)
     companion object {
         fun fromJson(j: JSONObject) = PersonalProfile(
             j.optString("displayName"), j.optString("communicationStyle","Direct, practical and concise"),
             j.optString("responsePreferences"), j.optString("goals"), j.optString("workContext"),
-            j.optString("interests"), j.optString("customInstructions"), j.optString("learnedNotes")
+            j.optString("interests"), j.optString("customInstructions"), j.optString("learnedNotes"), j.optString("fineTuneExamples")
         )
     }
 }
