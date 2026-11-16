@@ -52,7 +52,7 @@ data class FridayState(
     val generationStatus: String = "Not measured",
     val localDocuments: List<LocalDocument> = emptyList(),
     val scanningDocuments: Boolean = false,
-    val documentStatus: String = "Documents not scanned"
+    val documentStatus: String = "Documents not scanned",\n    val personalProfile: PersonalProfile = PersonalProfile()
 )
 
 class FridayViewModel(app: Application) : AndroidViewModel(app) {
@@ -67,7 +67,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         private const val MAX_HISTORY_CHARS = 900
         private const val MAX_USER_PROMPT_CHARS = 12000
     }
-    private val store = LocalChatStore(app)
+    private val store = LocalChatStore(app)\n    private val personalMemory = PersonalMemoryStore(app)
     private val prefs = app.getSharedPreferences("friday_settings", 0)
     private val executor = Executors.newSingleThreadExecutor()
     private val dispatcher = executor.asCoroutineDispatcher()
@@ -78,7 +78,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     }
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
     private val _state = MutableStateFlow(FridayState(
-        messages = store.readRecent(100),
+        messages = store.readRecent(100),\n        personalProfile = personalMemory.read(),
         cloudApprovalEnabled = prefs.getBoolean("cloud_approval", false),
         speakReplies = prefs.getBoolean("speak_replies", true),
         googleStatus = if (googleContext.isNotBlank() && app.getSharedPreferences("friday_google", 0).getBoolean("connected", false)) "Google context synced locally" else "Google account not connected",
@@ -86,7 +86,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     ))
     val state: StateFlow<FridayState> = _state.asStateFlow()
     private var engine: Engine? = null
-    private var conversation: Conversation? = null
+    private var conversation: Conversation? = null\n\n    private fun personalizedSystemPrompt(): String {\n        val p = _state.value.personalProfile\n        val details = listOf("Communication style: " + p.communicationStyle, "Response preferences: " + p.responsePreferences, "Goals: " + p.goals, "Work context: " + p.workContext, "Interests: " + p.interests, "Custom instructions: " + p.customInstructions, "User-approved notes: " + p.learnedNotes).filter { it.substringAfter(": ").isNotBlank() }\n        return SYSTEM_PROMPT + if (details.isEmpty()) "" else "\\n\\nPersonalization profile (user-controlled; follow when relevant):\\n" + details.joinToString("\\n")\n    }\n\n    fun savePersonalProfile(profile: PersonalProfile) {\n        personalMemory.save(profile)\n        _state.update { it.copy(personalProfile = profile) }\n        if (_state.value.modelReady && !_state.value.busy) scope.launch { rebuildConversationFromRecentHistory() }\n    }\n\n    fun clearPersonalProfile() {\n        personalMemory.clear()\n        _state.update { it.copy(personalProfile = PersonalProfile()) }\n        if (_state.value.modelReady && !_state.value.busy) scope.launch { rebuildConversationFromRecentHistory() }\n    }
 
     init {
         val selectedId = prefs.getString("selected_model_id", "qwen3-06") ?: "qwen3-06"
@@ -199,7 +199,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                     if (it.role == "user") Message.user(boundedText) else Message.model(boundedText)
                 }
                 conversation = checkNotNull(engine).createConversation(
-                    ConversationConfig(systemInstruction = Contents.of(SYSTEM_PROMPT), initialMessages = history)
+                    ConversationConfig(systemInstruction = Contents.of(personalizedSystemPrompt()), initialMessages = history)
                 )
                 prefs.edit().putString("selected_model_id", modelId).apply()
                 _state.update { it.copy(modelReady = true, selectedModelId = modelId, status = "On-device model ready • " + backendName + " • " + (MODEL_OPTIONS.firstOrNull { option -> option.id == modelId }?.name ?: modelId), error = null) }
@@ -423,7 +423,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             if (it.role == "user") Message.user(boundedText) else Message.model(boundedText)
         }
         conversation = activeEngine.createConversation(
-            ConversationConfig(systemInstruction = Contents.of(SYSTEM_PROMPT), initialMessages = history)
+            ConversationConfig(systemInstruction = Contents.of(personalizedSystemPrompt()), initialMessages = history)
         )
     }
 
