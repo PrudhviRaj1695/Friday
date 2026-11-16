@@ -216,7 +216,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 runCatching { voiceEngine.speak(speechText, speakerId = 0, speed = 1.0f) }
                     .onSuccess { _state.update { it.copy(voiceStatus = "Downloaded Kokoro voice ready • offline") } }
                     .onFailure { failure ->
-                        _state.update { it.copy(voiceStatus = "Kokoro playback failed: ${failure.message ?: "unknown error"}") }
+                        val detail = failure.message?.takeIf { it.isNotBlank() } ?: "Unknown error"
+                        _state.update { it.copy(voiceStatus = "Kokoro playback failed: $detail") }
                     }
             }
         } else {
