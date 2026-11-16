@@ -407,6 +407,17 @@ Last error: ${state.error ?: "none"}
                     ) { Text("SEND", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
                 }
             }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = { vm.stopSpeaking() },
+                    shape = RoundedCornerShape(18.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 5.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB52D86)),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF8BD6))
+                ) {
+                    Text("■  STOP VOICE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text(if (voiceStatus.isNotBlank()) voiceStatus else if (state.busy) "GENERATING RESPONSE…" else "LOCAL CHAT • CLOUD OFF", color = Muted, fontSize = 9.sp)
                 Text("SETTINGS", color = Neon, fontSize = 10.sp, modifier = Modifier.clickable { setupOpen = true }.padding(8.dp))
