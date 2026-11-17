@@ -248,12 +248,6 @@ class FridayAssistantService : Service() {
             override fun onResults(results: android.os.Bundle?) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
                 releaseSpeech()
-                val activityVm = MainActivity.activeViewModel
-                if (activityVm != null && assistant != null && assistant !== activityVm) {
-                    assistant?.shutdownForService()
-                    assistant = null
-                }
-                val vm = activityVm ?: assistant ?: FridayViewModel(application).also { assistant = it }
                 if (text.isBlank()) {
                     status("Didn't catch that • say “Friday” again")
                     commandInProgress = false; restartWakeLoop(); return
@@ -268,6 +262,12 @@ class FridayAssistantService : Service() {
                     stopSelf()
                     return
                 }
+                val activityVm = MainActivity.activeViewModel
+                if (activityVm != null && assistant != null && assistant !== activityVm) {
+                    assistant?.shutdownForService()
+                    assistant = null
+                }
+                val vm = activityVm ?: assistant ?: FridayViewModel(application).also { assistant = it }
                 if (!vm.state.value.modelReady) {
                     status("Loading your local AI model…")
                     val ready = withTimeoutOrNull(90_000) {
