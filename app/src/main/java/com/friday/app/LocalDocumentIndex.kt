@@ -17,6 +17,10 @@ import java.io.File
 import java.io.InputStream
 import java.util.Locale
 import java.util.zip.ZipInputStream
+import java.util.zip.GZIPInputStream
+import java.util.zip.GZIPOutputStream
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class LocalDocument(
     val name: String,
@@ -33,6 +37,57 @@ object LocalDocumentIndex {
     private val supported = setOf("txt","md","csv","json","xml","html","htm","log","pdf","docx","xlsx","pptx","jpg","jpeg","png","webp")
 
     data class Progress(val percent: Int, val processed: Int, val total: Int, val currentFile: String, val extracted: Int, val failed: Int)
+
+    private const val INDEX_FILE = "friday_document_index.json.gz"
+    private const val MAX_INDEX_TEXT_CHARS = 12_000_000
+    private const val MAX_INDEX_FILE_BYTES = 40_000_000L
+
+    /** Persist extracted text locally so RAG survives app restarts and process death. */
+    fun saveIndex(context: Context, documents: List<LocalDocument>) {
+        runCatching {
+            val array = JSONArray()
+            var chars = 0
+            for (doc in documents) {
+                if (doc.content.isBlank()) continue
+                val remaining = MAX_INDEX_TEXT_CHARS - chars
+                if (remaining <= 0) break
+                val content = doc.content.take(minOf(100_000, remaining))
+                array.put(JSONObject()
+                    .put("name", doc.name)
+                    .put("location", doc.location)
+                    .put("mimeType", doc.mimeType)
+                    .put("sizeBytes", doc.sizeBytes)
+                    .put("content", content))
+                chars += content.length
+            }
+            val payload = JSONObject().put("version", 1).put("documents", array).toString()
+            val target = File(context.filesDir, INDEX_FILE)
+            val temp = File(context.filesDir, "$INDEX_FILE.part")
+            GZIPOutputStream(temp.outputStream().buffered()).use { it.write(payload.toByteArray(Charsets.UTF_8)) }
+            if (!temp.renameTo(target)) {
+                target.delete()
+                check(temp.renameTo(target)) { "Could not finalize the local document index" }
+            }
+        }
+    }
+
+    /** Load only a bounded, app-private compressed index; malformed caches are ignored safely. */
+    fun loadIndex(context: Context): List<LocalDocument> = runCatching {
+        val file = File(context.filesDir, INDEX_FILE)
+        if (!file.isFile || file.length() !in 1..MAX_INDEX_FILE_BYTES) return emptyList()
+        val payload = GZIPInputStream(file.inputStream().buffered()).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val array = JSONObject(payload).optJSONArray("documents") ?: return emptyList()
+        (0 until array.length()).mapNotNull { i ->
+            val item = array.optJSONObject(i) ?: return@mapNotNull null
+            LocalDocument(
+                name = item.optString("name"),
+                location = item.optString("location"),
+                mimeType = item.optString("mimeType"),
+                sizeBytes = item.optLong("sizeBytes"),
+                content = item.optString("content")
+            ).takeIf { it.name.isNotBlank() && it.content.isNotBlank() }
+        }.take(MAX_FILES)
+    }.getOrDefault(emptyList())
 
     fun scan(context: Context, onProgress: (Progress) -> Unit = {}): List<LocalDocument> {
         PDFBoxResourceLoader.init(context.applicationContext)
@@ -135,12 +190,16 @@ object LocalDocumentIndex {
                         stripper.startPage = page
                         stripper.endPage = page
                         var pageText = stripper.getText(doc).trim()
-                        if (pageText.isBlank()) {
-                            val bitmap = runCatching { renderer.renderImageWithDPI(page - 1, 130f) }.getOrNull()
+                        // Scanned PDFs sometimes contain a tiny OCR layer (page number/header only).
+                        // Blank-only fallback misses these pages, so OCR sparse text layers too.
+                        val meaningfulChars = pageText.count { it.isLetterOrDigit() }
+                        if (meaningfulChars < 45) {
+                            val bitmap = runCatching { renderer.renderImageWithDPI(page - 1, 180f) }.getOrNull()
                             if (bitmap != null) {
                                 val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
-                                pageText = try { Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text }
+                                val ocrText = try { Tasks.await(recognizer.process(InputImage.fromBitmap(bitmap, 0))).text }
                                     finally { recognizer.close(); bitmap.recycle() }
+                                if (ocrText.count { it.isLetterOrDigit() } > meaningfulChars) pageText = ocrText
                             }
                         }
                         append('\n').append("[PAGE ").append(page).append("]\n").append(pageText).append('\n')
