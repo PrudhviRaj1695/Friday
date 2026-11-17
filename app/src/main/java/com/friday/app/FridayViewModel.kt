@@ -149,6 +149,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private val executor = Executors.newSingleThreadExecutor()
     private val dispatcher = executor.asCoroutineDispatcher()
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
+    // Speech synthesis must not share the single-thread model executor.
+    private val voiceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val kokoroVoice = KokoroVoiceEngine(app)
     @Volatile private var activeVoiceJob: kotlinx.coroutines.Job? = null
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
@@ -174,7 +176,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     ))
     val state: StateFlow<FridayState> = _state.asStateFlow()
     init {
-        if (kokoroVoice.isInstalled()) scope.launch {
+        if (kokoroVoice.isInstalled()) voiceScope.launch {
             try {
                 val ready = kokoroVoice.initialize()
                 _state.update { it.copy(voiceModelReady = ready, voiceStatus = if (ready) "Kokoro neural voice ready • offline" else "Kokoro voice initialization failed") }
@@ -399,7 +401,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         activeVoiceJob?.cancel()
-        activeVoiceJob = scope.launch {
+        activeVoiceJob = voiceScope.launch {
             _state.update { it.copy(voicePlaying = true, voiceStatus = "Preparing Kokoro neural voice…") }
             val ok = kokoroVoice.speak(speechText)
             _state.update { it.copy(voicePlaying = false, voiceStatus = if (ok) "Kokoro neural voice • offline" else if (it.voiceStatus == "Voice stopped") "Voice stopped" else "Neural voice playback failed") }
@@ -488,8 +490,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun isDocumentInventoryRequest(query: String): Boolean {
         val q = query.lowercase()
-        return listOf("list", "show", "find", "what").any { it in q } &&
-            listOf("document", "file", "pdf", "local storage", "phone storage").any { it in q }
+        return Regex(
+            "\\b(list|show all|display all|inventory|what documents|which documents|indexed files|files indexed)\\b|local storage|phone storage|నా ఫైళ్లు|పత్రాల జాబితా",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(q)
     }
 
     private fun documentInventoryAnswer(): String {
@@ -505,13 +509,13 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private fun documentContextFor(query: String): String {
         val docs = _state.value.localDocuments.filter { it.content.isNotBlank() }
         if (docs.isEmpty()) return ""
-        val results = LocalDocumentRetriever.retrieve(query, docs, limit = 5)
-        if (results.isNotEmpty()) return LocalDocumentRetriever.formatContext(results, maxChars = 10_000)
+        val results = LocalDocumentRetriever.retrieve(query, docs, limit = 7)
+        if (results.isNotEmpty()) return LocalDocumentRetriever.formatContext(results, maxChars = 14_000)
 
         // Make a failed retrieval explicit for document-grounded questions. Without this,
         // the LLM may confidently answer from pretraining while implying it read the file.
         val asksAboutDocuments = Regex(
-            "\\b(document|file|pdf|scan|scanned|uploaded|attachment|according to|in my|from my|inside|policy|invoice|receipt|contract|agreement|report|letter|form)\\b|పత్రం|డాక్యుమెంట్",
+            "\\b(document|documents|file|files|pdf|scan|scanned|uploaded|attachment|according to|in my|from my|inside|policy|invoice|receipt|contract|agreement|report|letter|form|spreadsheet|workbook|presentation|indexed|folder)\\b|పత్రం|డాక్యుమెంట్|ఫైల్|పాలసీ|ఇన్‌వాయిస్",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(query)
         return if (asksAboutDocuments) {
@@ -571,7 +575,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         val punctuation = Regex("[.!?。！？\\n]").find(text)
                         val cut = when {
                             punctuation != null -> punctuation.range.last + 1
-                            text.length > 220 -> text.lastIndexOf(' ', 220).takeIf { it > 100 } ?: 220
+                            text.length > 150 -> text.lastIndexOf(' ', 150).takeIf { it > 80 } ?: 150
                             force -> text.length
                             else -> break
                         }
@@ -762,6 +766,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         engine = null
     }
     override fun onCleared() {
+        activeVoiceJob?.cancel()
+        voiceScope.cancel()
         kokoroVoice.release()
         scope.launch {
             closeCurrent()
