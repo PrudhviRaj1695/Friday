@@ -28,11 +28,6 @@ class GenerationRequest(BaseModel):
     negative_node_id: str | None = None
     negative_input_name: str = "text"
     input_overrides: dict[str, dict[str, Any]] = Field(default_factory=dict)
-    seed: int | None = Field(default=None, ge=0, le=2**63 - 1)
-    width: int | None = Field(default=None, ge=64, le=8192)
-    height: int | None = Field(default=None, ge=64, le=8192)
-    duration_seconds: float | None = Field(default=None, ge=1, le=30)
-    fps: int | None = Field(default=None, ge=1, le=120)
 
 
 class JobAccepted(BaseModel):
