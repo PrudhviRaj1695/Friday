@@ -491,7 +491,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     private fun isDocumentInventoryRequest(query: String): Boolean {
         val q = query.lowercase()
         return Regex(
-            "\\b(list|show all|display all|inventory|what documents|which documents|indexed files|files indexed)\\b|local storage|phone storage|నా ఫైళ్లు|పత్రాల జాబితా",
+            "\\b(list|inventory)\\b.*\\b(files|documents)\\b|\\b(show|display)\\s+(all|my|indexed)\\s+(files|documents)\\b|\\bwhat documents (do you have|are indexed)\\b|\\bwhich files are indexed\\b|local storage|phone storage|నా ఫైళ్లు|పత్రాల జాబితా",
             RegexOption.IGNORE_CASE
         ).containsMatchIn(q)
     }
