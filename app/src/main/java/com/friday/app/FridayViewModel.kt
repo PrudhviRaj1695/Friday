@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+data class ResponseProfile(val name: String, val prompt: String, val contentStyle: String = "Balanced")
+
 data class LocalModelOption(val id: String, val name: String, val description: String, val fileName: String, val downloadUrl: String, val minBytes: Long, val maxBytes: Long, val expectedSize: String, val license: String, val sha256: String? = null)
 
 data class FridayState(
@@ -66,7 +68,10 @@ data class FridayState(
     val personalityPrompt: String = "",
     val creativity: Float = 0.7f,
     val contentStyle: String = "Balanced",
-    val chatFontSize: Int = 16
+    val chatFontSize: Int = 16,
+    val responseProfiles: List<ResponseProfile> = emptyList(),
+    val additionalBehaviorInstructions: String = "",
+    val matureLanguageEnabled: Boolean = false
 )
 
 class FridayViewModel(app: Application) : AndroidViewModel(app) {
@@ -160,7 +165,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         personalityPrompt = prefs.getString("personality_prompt", "") ?: "",
         creativity = prefs.getFloat("creativity", 0.7f),
         contentStyle = prefs.getString("content_style", "Balanced") ?: "Balanced",
-        chatFontSize = prefs.getInt("chat_font_size", 16)
+        chatFontSize = prefs.getInt("chat_font_size", 16),
+        responseProfiles = readResponseProfiles(),
+        additionalBehaviorInstructions = prefs.getString("additional_behavior_instructions", "") ?: "",
+        matureLanguageEnabled = prefs.getBoolean("mature_language_enabled", false)
     ))
     val state: StateFlow<FridayState> = _state.asStateFlow()
     init {
@@ -201,8 +209,10 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             else -> "Balance originality with accuracy. Offer useful ideas without inventing facts."
         }
         val personality = _state.value.personalityPrompt.trim()
-        return SYSTEM_PROMPT + languageRule + styleRule + "\nCREATIVE STYLE: " + creativityRule +
-            (if (personality.isNotBlank()) "\n\nACTIVE PERSONALITY (" + _state.value.activePersonality + "):\n" + personality else "") +
+        val matureRule = if (_state.value.matureLanguageEnabled) "\\nLANGUAGE PREFERENCE: Do not unnecessarily sanitize ordinary adult vocabulary or fictional dialogue. This is a language preference, not permission to produce exploitative or non-consensual content or harmful instructions." else ""
+        val customBehavior = _state.value.additionalBehaviorInstructions.trim().take(4000)
+        return SYSTEM_PROMPT + languageRule + styleRule + matureRule + "\\nCREATIVE STYLE: " + creativityRule +
+            (if (personality.isNotBlank()) "\n\nACTIVE PERSONALITY (" + _state.value.activePersonality + "):\n" + personality else "") +\n            (if (customBehavior.isNotBlank()) "\n\nADDITIONAL USER PREFERENCES:\n" + customBehavior else "") +
             (if (details.isEmpty()) "" else "\n\nPersonalization profile (user-controlled; follow when relevant):\n" + details.joinToString("\n"))
     }
 
@@ -616,6 +626,55 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         _state.update { it.copy(contentStyle = safe) }
         refreshPromptIfIdle()
     }
+    private fun readResponseProfiles(): List<ResponseProfile> = runCatching {
+        val raw = prefs.getString("response_profiles", "[]") ?: "[]"
+        val array = org.json.JSONArray(raw)
+        (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            ResponseProfile(item.optString("name"), item.optString("prompt"), item.optString("contentStyle", "Balanced"))
+                .takeIf { it.name.isNotBlank() && it.prompt.isNotBlank() }
+        }
+    }.getOrDefault(emptyList())
+
+    private fun persistResponseProfiles(profiles: List<ResponseProfile>) {
+        val array = org.json.JSONArray()
+        profiles.forEach { array.put(org.json.JSONObject().put("name", it.name).put("prompt", it.prompt).put("contentStyle", it.contentStyle)) }
+        prefs.edit().putString("response_profiles", array.toString()).apply()
+        _state.update { it.copy(responseProfiles = profiles) }
+    }
+
+    fun saveResponseProfile(name: String, prompt: String) {
+        val cleanName = name.trim().take(48)
+        val cleanPrompt = prompt.trim().take(4000)
+        if (cleanName.isBlank() || cleanPrompt.isBlank()) return
+        val profiles = _state.value.responseProfiles.filterNot { it.name.equals(cleanName, true) } +
+            ResponseProfile(cleanName, cleanPrompt, _state.value.contentStyle)
+        persistResponseProfiles(profiles.takeLast(20))
+        setPersonality(cleanName, cleanPrompt)
+    }
+
+    fun activateResponseProfile(profile: ResponseProfile) {
+        setPersonality(profile.name, profile.prompt)
+        setContentStyle(profile.contentStyle)
+    }
+
+    fun deleteResponseProfile(name: String) {
+        persistResponseProfiles(_state.value.responseProfiles.filterNot { it.name == name })
+    }
+
+    fun setAdditionalBehaviorInstructions(value: String) {
+        val safe = value.take(4000)
+        prefs.edit().putString("additional_behavior_instructions", safe).apply()
+        _state.update { it.copy(additionalBehaviorInstructions = safe) }
+        refreshPromptIfIdle()
+    }
+
+    fun setMatureLanguageEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean("mature_language_enabled", enabled).apply()
+        _state.update { it.copy(matureLanguageEnabled = enabled) }
+        refreshPromptIfIdle()
+    }
+
     fun setChatFontSize(value: Int) {
         val safe = value.coerceIn(14, 24)
         prefs.edit().putInt("chat_font_size", safe).apply()
