@@ -3,6 +3,14 @@ name: Build FRIDAY Android APK
 on:
   workflow_dispatch:
   push:
+    branches: [ main ]
+    paths:
+      - 'app/**'
+      - 'tools/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
     paths:
       - 'app/**'
       - 'tools/**'
