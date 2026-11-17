@@ -35,6 +35,31 @@ uvicorn app:app --host $env:FRIDAY_HOST --port $env:FRIDAY_PORT
 
 For phone-to-PC access over a trusted LAN, bind to `0.0.0.0`, set a strong `FRIDAY_API_TOKEN`, configure Windows Firewall for the private network only, and use the PC's LAN address in FRIDAY settings. Do not expose this worker to the public internet.
 
+## Advanced local LLM controls
+
+The local Ollama chat endpoint accepts model-specific sampling parameters:
+
+- `temperature` (0–2), `top_p` (0–1), `top_k` (1–200)
+- `repeat_penalty` (0.5–2), `seed`, `max_tokens`, and `context_window`
+- `policy_mode`: `balanced`, `mature_language`, or `strict`
+- `additional_instructions`: user-controlled response preferences (up to 4,000 characters)
+
+Example request body:
+
+```json
+{
+  "message": "Explain this Python code",
+  "temperature": 0.7,
+  "top_p": 0.9,
+  "top_k": 40,
+  "repeat_penalty": 1.08,
+  "policy_mode": "mature_language",
+  "additional_instructions": "Be direct and include a practical example."
+}
+```
+
+Policy modes adjust prompt-level tone and behavior. They are not a hard moderation firewall and do not change model weights. The Android LiteRT-LM path currently exposes prompt-guided creativity/personality controls; native token sampling controls are not claimed for that runtime. Android response profiles and behavior preferences are saved locally on the device.
+
 ## ComfyUI workflows
 
 Export workflows from ComfyUI in **API format** and place the JSON files in `FRIDAY_WORKFLOWS_DIR` (default `./workflows`). Give each workflow a stable filename such as `flux_schnell` or `wan_t2v`.
