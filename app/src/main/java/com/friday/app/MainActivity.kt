@@ -82,11 +82,6 @@ private val PinkGlow = Color(0xFFDAA9FF)
 class MainActivity : ComponentActivity() {
     companion object { @Volatile var activeViewModel: FridayViewModel? = null }
     private val fridayViewModel: FridayViewModel by viewModels()
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        activeViewModel = fridayViewModel
-    }
-
     override fun onDestroy() {
         if (activeViewModel === fridayViewModel) activeViewModel = null
         super.onDestroy()
@@ -101,6 +96,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        activeViewModel = fridayViewModel
         window.statusBarColor = android.graphics.Color.rgb(5, 2, 8)
         window.navigationBarColor = android.graphics.Color.rgb(5, 2, 8)
         setContent { FridayApp(fridayViewModel) }
@@ -117,7 +113,6 @@ fun FridayApp(vm: FridayViewModel) {
     var textOpen by remember { mutableStateOf(false) }
     var debugOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
-    var voiceStatus by remember { mutableStateOf("") }
     var googleActionError by remember { mutableStateOf<String?>(null) }
     var clearMemoryConfirm by remember { mutableStateOf(false) }
     var modelMenuOpen by remember { mutableStateOf(false) }
