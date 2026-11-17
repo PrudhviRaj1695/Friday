@@ -102,7 +102,7 @@ class FridayAssistantService : Service() {
                     ),
                     tokens = File(dir, "tokens.txt").absolutePath, modelType = "zipformer2", numThreads = 1, provider = "cpu"
                 ),
-                keywordsFile = File(dir, "keywords.txt").absolutePath, keywordsScore = 1.8f, keywordsThreshold = 0.25f
+                keywordsFile = File(dir, "friday_keywords.txt").absolutePath, keywordsScore = 1.8f, keywordsThreshold = 0.25f
             ))
             if (Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
                 status("On-device speech recognition is unavailable. Install an offline speech pack, then restart FRIDAY.")
@@ -121,8 +121,11 @@ class FridayAssistantService : Service() {
     private fun ensureModel(): File {
         val root = File(filesDir, "wakeword")
         val target = File(root, MODEL)
-        val names = listOf("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "tokens.txt", "keywords.txt")
-        if (names.all { File(target, it).length() > 0 }) return target
+        val names = listOf("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "tokens.txt")
+        if (names.all { File(target, it).length() > 0 }) {
+            installWakeKeywordFile(target)
+            return target
+        }
         root.mkdirs()
         val archive = File(root, "$MODEL.tar.bz2")
         val part = File(root, "$MODEL.part")
@@ -157,9 +160,23 @@ class FridayAssistantService : Service() {
             }
             val extracted = File(staging, MODEL)
             check(names.all { File(extracted, it).isFile && File(extracted, it).length() > 0 }) { "Wake-word model files missing" }
+            installWakeKeywordFile(extracted)
             target.deleteRecursively(); check(extracted.renameTo(target)) { "Could not install wake-word model" }
         } finally { staging.deleteRecursively(); archive.delete(); part.delete() }
         return target
+    }
+
+    /** The raw word "Friday" is not valid for a BPE KWS stream. The build generates
+     * this file with the exact SentencePiece model shipped in the KWS archive. */
+    private fun installWakeKeywordFile(directory: File) {
+        val destination = File(directory, "friday_keywords.txt")
+        val temporary = File(directory, "friday_keywords.txt.part")
+        assets.open("friday_keywords.txt").use { input ->
+            temporary.outputStream().buffered().use { output -> input.copyTo(output) }
+        }
+        check(temporary.length() > 0L) { "Generated FRIDAY wake phrase is empty" }
+        destination.delete()
+        check(temporary.renameTo(destination)) { "Could not install FRIDAY wake phrase" }
     }
 
     private fun startWakeLoop() {
@@ -169,7 +186,8 @@ class FridayAssistantService : Service() {
         check(min > 0) { "Unsupported microphone format" }
         val recorder = AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, maxOf(min * 2, 8000))
         check(recorder.state == AudioRecord.STATE_INITIALIZED) { "Microphone initialization failed" }
-        val stream = kws.createStream("Friday")
+        // Uses the model-tokenized FRIDAY phrase from friday_keywords.txt.
+        val stream = kws.createStream()
         audio = recorder; recorder.startRecording(); recording = true
         status("Listening locally • say “Friday”")
         worker = Thread({
@@ -181,7 +199,11 @@ class FridayAssistantService : Service() {
                     while (kws.isReady(stream)) {
                         kws.decode(stream)
                         if (kws.getResult(stream).keyword.isNotBlank()) {
-                            recording = false; main.postDelayed({ onWakeWord() }, 180); break
+                            // Sherpa requires a stream reset immediately after a detection.
+                            kws.reset(stream)
+                            recording = false
+                            main.postDelayed({ onWakeWord() }, 220)
+                            break
                         }
                     }
                 }
