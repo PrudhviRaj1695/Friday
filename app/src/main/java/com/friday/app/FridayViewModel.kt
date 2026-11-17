@@ -211,7 +211,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         val personality = _state.value.personalityPrompt.trim()
         val matureRule = if (_state.value.matureLanguageEnabled) "\nLANGUAGE PREFERENCE: Do not unnecessarily sanitize ordinary adult vocabulary or fictional dialogue. This is a language preference, not permission to produce exploitative or non-consensual content or harmful instructions." else ""
         val customBehavior = _state.value.additionalBehaviorInstructions.trim().take(4000)
-        return SYSTEM_PROMPT + languageRule + styleRule + matureRule + "\\nCREATIVE STYLE: " + creativityRule +
+        return SYSTEM_PROMPT + languageRule + styleRule + matureRule + "\nCREATIVE STYLE: " + creativityRule +
             (if (personality.isNotBlank()) "\n\nACTIVE PERSONALITY (" + _state.value.activePersonality + "):\n" + personality else "") +\n            (if (customBehavior.isNotBlank()) "\n\nADDITIONAL USER PREFERENCES:\n" + customBehavior else "") +
             (if (details.isEmpty()) "" else "\n\nPersonalization profile (user-controlled; follow when relevant):\n" + details.joinToString("\n"))
     }
