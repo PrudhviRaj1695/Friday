@@ -401,6 +401,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
             return
         }
         activeVoiceJob?.cancel()
+        kokoroVoice.stop()
         activeVoiceJob = voiceScope.launch {
             _state.update { it.copy(voicePlaying = true, voiceStatus = "Preparing Kokoro neural voice…") }
             val ok = kokoroVoice.speak(speechText)
@@ -555,6 +556,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 val speechQueue = if (_state.value.speakReplies && _state.value.voiceModelReady) Channel<String>(Channel.UNLIMITED) else null
                 if (speechQueue != null) {
                     activeVoiceJob?.cancel()
+                    kokoroVoice.stop()
                     activeVoiceJob = voiceScope.launch {
                         var startedSpeaking = false
                         for (sentence in speechQueue) {
@@ -574,8 +576,9 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         val text = speechBuffer.toString()
                         val punctuation = Regex("[.!?。！？;；\\n]").find(text)
                         val cut = when {
+                            punctuation != null && punctuation.range.last <= 130 -> punctuation.range.last + 1
+                            text.length > 130 -> text.lastIndexOf(' ', 130).takeIf { it > 70 } ?: 130
                             punctuation != null -> punctuation.range.last + 1
-                            text.length > 150 -> text.lastIndexOf(' ', 150).takeIf { it > 80 } ?: 150
                             force -> text.length
                             else -> break
                         }
