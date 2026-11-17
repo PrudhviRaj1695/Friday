@@ -96,9 +96,9 @@ class FridayAssistantService : Service() {
                 featConfig = FeatureConfig(sampleRate = RATE, featureDim = 80),
                 modelConfig = OnlineModelConfig(
                     transducer = OnlineTransducerModelConfig(
-                        encoder = File(dir, "encoder-epoch-12-avg-2-chunk-16-left-64.onnx").absolutePath,
-                        decoder = File(dir, "decoder-epoch-12-avg-2-chunk-16-left-64.onnx").absolutePath,
-                        joiner = File(dir, "joiner-epoch-12-avg-2-chunk-16-left-64.onnx").absolutePath
+                        encoder = File(dir, "encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx").absolutePath,
+                        decoder = File(dir, "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx").absolutePath,
+                        joiner = File(dir, "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx").absolutePath
                     ),
                     tokens = File(dir, "tokens.txt").absolutePath, modelType = "zipformer2", numThreads = 1, provider = "cpu"
                 ),
@@ -121,7 +121,7 @@ class FridayAssistantService : Service() {
     private fun ensureModel(): File {
         val root = File(filesDir, "wakeword")
         val target = File(root, MODEL)
-        val names = listOf("encoder-epoch-12-avg-2-chunk-16-left-64.onnx", "decoder-epoch-12-avg-2-chunk-16-left-64.onnx", "joiner-epoch-12-avg-2-chunk-16-left-64.onnx", "tokens.txt", "keywords.txt")
+        val names = listOf("encoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "decoder-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "joiner-epoch-12-avg-2-chunk-16-left-64.int8.onnx", "tokens.txt", "keywords.txt")
         if (names.all { File(target, it).length() > 0 }) return target
         root.mkdirs()
         val archive = File(root, "$MODEL.tar.bz2")
