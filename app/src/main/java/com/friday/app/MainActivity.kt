@@ -123,7 +123,13 @@ fun FridayApp(vm: FridayViewModel) {
     var selectedFolderLabel by remember { mutableStateOf(context.getSharedPreferences("friday_storage", 0).getString("tree_uri", null)?.let { "A folder is linked" } ?: "No folder selected") }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) allFilesGranted = Environment.isExternalStorageManager() }
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                allFilesGranted = Environment.isExternalStorageManager()
+                handsFreeEnabled = FridayAssistantService.isRunning
+                if (handsFreeEnabled) voiceStatus = "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY"
+            }
+        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -167,6 +173,25 @@ fun FridayApp(vm: FridayViewModel) {
             }.onFailure { voiceStatus = "BACKGROUND ASSISTANT FAILED • ${it.message ?: "try again"}" }
         } else {
             voiceStatus = "MICROPHONE PERMISSION DENIED"
+        }
+    }
+    // If Android killed the process (rather than the user stopping the assistant),
+    // restore the opted-in service while this launcher activity is visible.
+    LaunchedEffect(Unit) {
+        val preferences = context.getSharedPreferences("friday_settings", Context.MODE_PRIVATE)
+        val optedIn = preferences.getBoolean("background_assistant_enabled", false)
+        val micGranted = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (optedIn && micGranted && !FridayAssistantService.isRunning) {
+            runCatching {
+                androidx.core.content.ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, FridayAssistantService::class.java).setAction(FridayAssistantService.ACTION_START)
+                )
+                handsFreeEnabled = true
+                voiceStatus = "RESTORING BACKGROUND ASSISTANT • SAY FRIDAY"
+            }.onFailure {
+                voiceStatus = "BACKGROUND ASSISTANT COULD NOT RESTART • ${it.message ?: "open settings"}"
+            }
         }
     }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
