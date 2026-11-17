@@ -43,8 +43,7 @@ object LocalDocumentIndex {
     private const val MAX_INDEX_FILE_BYTES = 40_000_000L
 
     /** Persist extracted text locally so RAG survives app restarts and process death. */
-    fun saveIndex(context: Context, documents: List<LocalDocument>) {
-        runCatching {
+    fun saveIndex(context: Context, documents: List<LocalDocument>): Boolean = runCatching {
             val array = JSONArray()
             var chars = 0
             for (doc in documents) {
@@ -68,8 +67,8 @@ object LocalDocumentIndex {
                 target.delete()
                 check(temp.renameTo(target)) { "Could not finalize the local document index" }
             }
-        }
-    }
+            true
+        }.getOrDefault(false)
 
     /** Load only a bounded, app-private compressed index; malformed caches are ignored safely. */
     fun loadIndex(context: Context): List<LocalDocument> = runCatching {
