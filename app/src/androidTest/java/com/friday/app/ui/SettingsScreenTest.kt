@@ -29,7 +29,7 @@ class SettingsScreenTest {
 
     private fun show(page: SettingsPage?, state: com.friday.app.FridayState = baseState()) {
         var current by mutableStateOf(page)
-        rule.setContent { FridayTheme { SettingsScreen(current, state, actions, PlatformHooks(), onNavigate = { current = it }, onClose = {}) } }
+        rule.setContent { Sized(411, 891) { SettingsScreen(current, state, actions, PlatformHooks(), onNavigate = { current = it }, onClose = {}) } }
     }
 
     @Test fun settings_home_lists_all_nine_categories_and_navigates() {

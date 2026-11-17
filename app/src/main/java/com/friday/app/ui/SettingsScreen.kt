@@ -95,7 +95,8 @@ fun SettingsScreen(page: SettingsPage?, state: FridayState, actions: FridayActio
                 if (page != null) Text(page.subtitle, style = MaterialTheme.typography.bodySmall)
             }
         }
-        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        val scroll = key(page) { rememberScrollState() } // every page opens at its top
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             when (page) {
                 null -> SettingsHome(state, onNavigate)
                 SettingsPage.GENERAL -> GeneralPage(state, actions, hooks)

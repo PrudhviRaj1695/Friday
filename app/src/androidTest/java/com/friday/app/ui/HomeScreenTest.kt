@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -31,8 +32,9 @@ class HomeScreenTest {
     @get:Rule val rule = createComposeRule()
     private val actions = RecordingActions()
 
-    private fun show(state: FridayState) = rule.setContent {
-        FridayTheme { HomeScreen(state, actions, onOpenSettings = {}, onOpenCamera = {}, onOpenAppSettings = {}) }
+    private fun show(state: FridayState) {
+        rule.setContent { Sized(411, 891) { HomeScreen(state, actions, onOpenSettings = {}, onOpenCamera = {}, onOpenAppSettings = {}) } }
+        rule.waitForIdle() // let the initial auto-scroll animation finish before the test scrolls
     }
 
     @Test fun empty_command_center_renders_identity_status_and_voice_entry() {
@@ -40,6 +42,7 @@ class HomeScreenTest {
         rule.onNodeWithText("FRIDAY").assertIsDisplayed()
         rule.onNodeWithText("How can I help?").assertIsDisplayed()
         rule.onNodeWithText("On-device ready").assertIsDisplayed()
+        rule.onNodeWithTag("chip-personality").performScrollTo().assertIsDisplayed()
         rule.onNodeWithText("JARVIS").assertIsDisplayed()
         rule.onNodeWithContentDescription("Start voice input").assertIsDisplayed()
         rule.screenshot("home-empty-phone")
@@ -57,6 +60,7 @@ class HomeScreenTest {
     @Test fun long_markdown_reply_with_code_table_and_telugu_renders_and_scrolls() {
         show(baseState(ChatLine("user", "Explain list comprehensions"), ChatLine("assistant", LONG_REPLY), ChatLine("user", "తెలుగులో చెప్పు"), ChatLine("assistant", TELUGU_REPLY)))
         rule.onNodeWithTag("conversation").performScrollToNode(hasText("Python list comprehension"))
+        rule.waitForIdle()
         rule.onNodeWithText("Python list comprehension").assertIsDisplayed()
         rule.onNodeWithContentDescription("Copy code").assertExists()
         rule.onNodeWithTag("conversation").performScrollToNode(hasText("లిస్ట్ కాంప్రహెన్షన్", substring = true))
@@ -101,9 +105,10 @@ class HomeScreenTest {
 
     @Test fun language_chip_toggles_language_and_personality_chip_switches_personality() {
         show(baseState())
-        rule.onNodeWithTag("chip-language").performClick()
+        rule.onNodeWithTag("chip-language").performScrollTo().performClick()
         assertEquals("language:TELUGU", actions.calls.last())
-        rule.onNodeWithTag("chip-personality").performClick()
+        rule.onNodeWithTag("chip-personality").performScrollTo().performClick()
+        rule.waitForIdle()
         rule.onNodeWithText("Professional Engineer").performClick()
         assertEquals("personality:engineer", actions.calls.last())
     }
@@ -129,7 +134,7 @@ class HomeScreenTest {
 
     @Test fun state_changes_recompose_the_orb_label() {
         var state by mutableStateOf(baseState(ChatLine("user", "hi"), ChatLine("assistant", "Hello")))
-        rule.setContent { FridayTheme { HomeScreen(state, actions, {}, {}, {}) } }
+        rule.setContent { Sized(411, 891) { HomeScreen(state, actions, {}, {}, {}) } }
         rule.onNodeWithText("Ready").assertIsDisplayed()
         state = state.copy(voice = VoiceUi(VoiceState.SPEAKING, "Speaking…"))
         rule.onNodeWithText("Speaking").assertIsDisplayed()
