@@ -42,6 +42,11 @@ jobs:
       - name: Install Android platform and build tools
         run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Set up Python for wake-word token generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
