@@ -42,6 +42,7 @@ class FridayAssistantService : Service() {
     @Volatile private var spotter: KeywordSpotter? = null
     private var speech: SpeechRecognizer? = null
     private var assistant: FridayViewModel? = null
+    private var worker: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var commandInProgress = false
     private val main by lazy { android.os.Handler(android.os.Looper.getMainLooper()) }
@@ -51,7 +52,6 @@ class FridayAssistantService : Service() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(CHANNEL, "FRIDAY background assistant", NotificationManager.IMPORTANCE_LOW)
         )
-        assistant = FridayViewModel(application)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -79,7 +79,7 @@ class FridayAssistantService : Service() {
         return Notification.Builder(this, CHANNEL).setSmallIcon(android.R.drawable.ic_btn_speak_now)
             .setContentTitle("FRIDAY • background assistant").setContentText(message).setContentIntent(open)
             .setOngoing(true).setOnlyAlertOnce(true)
-            .addAction(Notification.Action.Builder(null, "Stop listening", stop).build()).build()
+            .addAction(Notification.Action.Builder(android.R.drawable.ic_media_pause, "Stop listening", stop).build()).build()
     }
     private fun status(message: String) {
         getSystemService(NotificationManager::class.java).notify(NOTIFICATION_ID, notification(message))
@@ -167,7 +167,7 @@ class FridayAssistantService : Service() {
         val stream = kws.createStream("Friday")
         audio = recorder; recorder.startRecording(); recording = true
         status("Listening locally • say “Friday”")
-        Thread({
+        worker = Thread({
             val buffer = ShortArray(1600)
             try {
                 while (active.get() && recording) {
@@ -176,7 +176,7 @@ class FridayAssistantService : Service() {
                     while (kws.isReady(stream)) {
                         kws.decode(stream)
                         if (kws.getResult(stream).keyword.isNotBlank()) {
-                            recording = false; main.post { onWakeWord() }; break
+                            recording = false; main.postDelayed({ onWakeWord() }, 180); break
                         }
                     }
                 }
@@ -212,8 +212,8 @@ class FridayAssistantService : Service() {
             override fun onResults(results: android.os.Bundle?) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
                 releaseSpeech()
-                val vm = assistant
-                if (text.isBlank() || vm == null || !vm.state.value.modelReady) {
+                val vm = MainActivity.activeViewModel ?: assistant ?: FridayViewModel(application).also { assistant = it }
+                if (text.isBlank() || !vm.state.value.modelReady) {
                     status(if (text.isBlank()) "Didn't catch that • say “Friday” again" else "Local AI model is not ready")
                     commandInProgress = false; restartWakeLoop(); return
                 }
@@ -248,6 +248,7 @@ class FridayAssistantService : Service() {
     override fun onTaskRemoved(rootIntent: Intent?) { super.onTaskRemoved(rootIntent) }
     override fun onDestroy() {
         active.set(false); recording = false; stopWakeLoop(); releaseSpeech()
+        runCatching { worker?.join(1000) }; worker = null
         runCatching { spotter?.release() }; spotter = null
         wakeLock?.let { if (it.isHeld) it.release() }; wakeLock = null
         assistant?.shutdownForService(); assistant = null
