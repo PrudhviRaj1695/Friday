@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Cleartext is permitted at the platform level only so FRIDAY can reach the user's own Windows
+  worker over the home LAN. The app enforces the real policy in code (LanAddressPolicy): plain
+  HTTP is accepted only for private/link-local/Tailscale addresses, and every worker request
+  carries the pairing token. Model and voice downloads use hard-coded https:// URLs.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

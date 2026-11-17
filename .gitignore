@@ -1,0 +1,14 @@
+# Build outputs
+build/
+.gradle/
+*.apk
+local.properties
+.idea/
+*.iml
+# Downloaded in CI / locally (49 MB)
+app/libs/*.aar
+# Windows worker
+windows-worker/.venv/
+windows-worker/friday_token.txt
+__pycache__/
+.pytest_cache/

@@ -1,47 +1,41 @@
-# FRIDAY — Phone-first build (v0.2)
+# FRIDAY — Setup (v0.7)
 
 ## Product decisions
-- **AI mode:** Hybrid architecture. On-device inference is the default. Cloud inference is disabled until a provider is configured and a per-request approval flow is implemented.
-- **Interaction:** Text chat, Android speech recognition input, Kokoro offline neural TTS output (Android TextToSpeech fallback).
-- **Memory:** Conversation history stored in a private SQLite database in the app sandbox.
-
-## Current implementation
-- Native Android app (Kotlin + Jetpack Compose).
-- LiteRT-LM Android runtime: `com.google.ai.edge.litertlm:litertlm-android:0.18.0`.
-- First model: `litert-community/Qwen3-0.6B`, file `Qwen3-0.6B.litertlm` (~586 MB).
-- Model is downloaded on demand to app-private `filesDir/models`; it is not bundled in the APK.
-- GPU initialization is attempted first; CPU is the fallback.
-- Conversation replies stream into the UI and conversation turns persist locally.
-- Android speech recognizer is asked to prefer offline recognition. Actual offline support depends on the installed speech recognition service and language pack; Android may still use a network service.
-- Downloaded Kokoro INT8 is the preferred speech engine once installed and initialized. Android TextToSpeech is used only when the Kokoro model is not installed.
+- **AI engines:** on-device LiteRT-LM on the phone (default) or the user's own Windows PC running Ollama through the FRIDAY worker. No cloud provider is connected.
+- **Interaction:** text chat, push-to-talk or continuous voice conversation, English and Telugu (selected manually; never auto-switched).
+- **Voice output:** Kokoro neural voice (offline, English) and the Android system voice for Telugu or as English fallback.
+- **Memory:** conversation history in a private SQLite database; personal profile and worker token encrypted with Android Keystore.
 
 ## Build and install
-1. Open GitHub Actions: https://github.com/PrudhviRaj1695/Friday/actions
-2. Run **Build FRIDAY Android APK** on `main`.
-3. Download artifact `friday-debug-apk` and install `app-debug.apk`.
-4. Open FRIDAY and tap **Download local AI model**. Use Wi-Fi and keep at least 1.5 GB free. The model download is about 586 MB.
-5. Wait for the model to initialize. Send a test prompt such as `Say hello and tell me you are running locally.`
-6. Grant microphone permission when using voice input.
+1. GitHub → Actions → **Build FRIDAY Android APK** → run on your branch (or push).
+2. Download artifact `friday-debug-apk` and install `app-debug.apk` (allow installs from your browser/files app).
+3. Local build: install JDK 17 + Android SDK 35, download `sherpa-onnx-2.0.1.aar` into `app/libs/` (see the workflow), then `gradle assembleDebug` (or `.\gradlew.bat` from Android Studio). Install with `adb install -r app/build/outputs/apk/debug/app-debug.apk`.
 
-## Voice setup
-- Open Setup → Voice Output. Download the offline Kokoro voice model and wait until the status says `Downloaded Kokoro voice ready • offline`.
-- Tap `Test voice`. If Kokoro fails to initialize or play, the screen reports the Kokoro error instead of pretending the downloaded voice is active.
-- Android TextToSpeech is only the fallback when no Kokoro model is installed.
+## First run
+1. Open **Settings → AI models**, pick a model and tap **Download selected model** (Wi-Fi, ~0.6–2.3 GB).
+2. Open **Settings → Voice** and tap **Download Kokoro voice** for the offline English neural voice.
+3. For Telugu: Android Settings → *Text-to-speech* → install Telugu voice data; Android *voice typing* → add Telugu (offline pack recommended). Settings → Language shows a checklist and shortcuts.
+4. Tap the microphone and grant microphone permission. Try:
+   - “Hey Friday, how are you?”
+   - “Switch to Telugu.” / “ఇప్పుడు తెలుగు లో మాట్లాడు.”
+   - “Change personality to JARVIS.” · “Set temperature to 0.7.” · “Repeat that.” · “Stop speaking.” · “Summarize this conversation.”
 
-## Privacy and hybrid mode
-- The local model and conversation database are stored inside the Android app's private sandbox.
-- No cloud LLM provider is connected in this build. The cloud approval preference is only a future-policy setting; toggling it does not transmit data.
-- Model download requires internet access and fetches the model file from Hugging Face.
-- Speech input uses Android's system speech recognizer with an offline preference. This is not a guarantee of offline recognition. For strict offline voice, integrate a dedicated offline ASR model/runtime.
-- Text-to-speech uses Android's system engine. Download an offline voice pack in Android settings if needed.
-- Cloud provider credentials, per-request approval dialog, authenticated provider client, and audit log remain future work.
+## Voice modes
+- **Push to talk** — tap the mic per request (tap again to finish early).
+- **Continuous** — after FRIDAY speaks it listens again; it pauses after a silent turn to protect battery.
+- **Text only** — microphone and spoken replies are off.
+- **Wake word** — not available (no on-device hotword engine). You can still begin requests with “Hey Friday”.
 
-## Security limitations
-This is an early personal prototype, not a production security boundary. Do not put secrets, financial credentials, or sensitive documents into it yet. Before adding agent actions or cloud calls, implement explicit per-action consent, encrypted backup/export policy, secure model integrity verification, and security testing.
+## Windows worker
+See `windows-worker/README.md`. In FRIDAY: Settings → Connectivity → address + pairing token → **Save & test** → enable *Use Windows worker for replies*.
 
-## Next milestones
-1. Verify LiteRT-LM API compile and model startup on the actual S25 Ultra.
-2. Add strict offline ASR.
-3. Add explicit per-message cloud consent and configure a provider (user chooses provider).
-4. Add memory search, summaries, export/delete controls, and encrypted local storage.
-5. Add deterministic tool registry and approval UI before any device actions.
+## Running the tests
+- JVM unit tests: `gradle testDebugUnitTest` (voice pipeline, command routing, configuration, personalities, Markdown, worker client).
+- Worker: `cd windows-worker && python -m pytest -q tests`.
+- Phone ↔ worker end-to-end: `windows-worker/tests/run_e2e.sh`.
+- Compose UI tests on a connected phone or emulator: `gradle connectedDebugAndroidTest`; screenshots land in `/sdcard/Android/data/com.friday.app/files/ui-screenshots`.
+
+## Privacy
+- Microphone audio goes only to Android's speech recognizer; FRIDAY does not record or store audio. Whether recognition is fully offline depends on the installed recognizer and language pack (FRIDAY requests offline and prefers the on-device engine).
+- With the Windows worker active, prompts and recent conversation travel to your PC over the LAN. Document and Google context are **not** shared with the PC unless you enable it.
+- Model and voice downloads come from Hugging Face / GitHub over HTTPS; the default Qwen3 model is SHA-256 verified.

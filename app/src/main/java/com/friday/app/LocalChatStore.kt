@@ -4,7 +4,10 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 
-data class ChatLine(val role: String, val text: String)
+/** [kind]: chat = model conversation (persisted), command = deterministic command/confirmation, error = failure notice. */
+data class ChatLine(val role: String, val text: String, val kind: String = KIND_CHAT) {
+    companion object { const val KIND_CHAT = "chat"; const val KIND_COMMAND = "command"; const val KIND_ERROR = "error" }
+}
 
 class LocalChatStore(context: Context) : SQLiteOpenHelper(context, "friday_memory.db", null, 1) {
     override fun onCreate(db: SQLiteDatabase) {

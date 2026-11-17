@@ -1,9 +1,6 @@
 package com.friday.app
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioTrack
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsKokoroModelConfig
@@ -32,8 +29,6 @@ class KokoroVoiceEngine(private val context: Context) {
     }
 
     @Volatile private var tts: OfflineTts? = null
-    @Volatile private var audioTrack: AudioTrack? = null
-    @Volatile private var stopped = false
 
     fun isInstalled(): Boolean {
         val dir = File(context.filesDir, MODEL_FOLDER)
@@ -155,53 +150,26 @@ class KokoroVoiceEngine(private val context: Context) {
         }
     }
 
-    suspend fun speak(text: String, voiceId: Int = DEFAULT_VOICE_ID, speed: Float = 1.0f): Boolean =
-        withContext(Dispatchers.Default) {
-            val engine = tts ?: return@withContext false
-            stopped = false
-            val clean = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
-            if (clean.isBlank()) return@withContext false
-            try {
-                val audio = engine.generate(clean, sid = voiceId.coerceIn(0, (engine.numSpeakers() - 1).coerceAtLeast(0)), speed = speed)
-                if (stopped || audio.samples.isEmpty()) return@withContext false
-                val rate = audio.sampleRate.takeIf { it > 0 } ?: engine.sampleRate()
-                val min = AudioTrack.getMinBufferSize(rate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_FLOAT)
-                val track = AudioTrack.Builder()
-                    .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build())
-                    .setAudioFormat(AudioFormat.Builder().setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).setEncoding(AudioFormat.ENCODING_PCM_FLOAT).build())
-                    .setBufferSizeInBytes((min * 2).coerceAtLeast(8192))
-                    .setTransferMode(AudioTrack.MODE_STREAM)
-                    .build()
-                audioTrack = track
-                track.play()
-                var offset = 0
-                while (offset < audio.samples.size && !stopped) {
-                    val written = track.write(audio.samples, offset, minOf(4096, audio.samples.size - offset), AudioTrack.WRITE_BLOCKING)
-                    if (written <= 0) break
-                    offset += written
-                }
-                if (!stopped) {
-                    while (!stopped && track.playbackHeadPosition.toLong() < audio.samples.size) Thread.sleep(25)
-                }
-                stop()
-                true
-            } catch (_: Exception) {
-                stop()
-                false
-            }
-        }
+    val isReady: Boolean get() = tts != null
 
-    fun stop() {
-        stopped = true
-        runCatching { audioTrack?.pause() }
-        runCatching { audioTrack?.flush() }
-        runCatching { audioTrack?.stop() }
-        runCatching { audioTrack?.release() }
-        audioTrack = null
+    class Audio(val samples: FloatArray, val sampleRate: Int)
+
+    /**
+     * Synthesizes one chunk of English text. Blocking (CPU inference) — call off the main thread.
+     * Playback is handled by [com.friday.app.voice.AndroidSpeechSynthesizer] so speech can be
+     * streamed sentence by sentence, paused and interrupted.
+     */
+    @Synchronized
+    fun generate(text: String, speed: Float = 1.0f, voiceId: Int = DEFAULT_VOICE_ID): Audio? {
+        val engine = tts ?: return null
+        val clean = text.replace(Regex("[*_#>]"), " ").replace(Regex("\\s+"), " ").trim()
+        if (clean.isBlank()) return null
+        val audio = engine.generate(clean, sid = voiceId.coerceIn(0, (engine.numSpeakers() - 1).coerceAtLeast(0)), speed = speed.coerceIn(0.5f, 2.0f))
+        if (audio.samples.isEmpty()) return null
+        return Audio(audio.samples, audio.sampleRate.takeIf { it > 0 } ?: engine.sampleRate())
     }
 
     fun release() {
-        stop()
         runCatching { tts?.release() }
         tts = null
     }
