@@ -123,13 +123,7 @@ fun FridayApp(vm: FridayViewModel) {
     var selectedFolderLabel by remember { mutableStateOf(context.getSharedPreferences("friday_storage", 0).getString("tree_uri", null)?.let { "A folder is linked" } ?: "No folder selected") }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                allFilesGranted = Environment.isExternalStorageManager()
-                handsFreeEnabled = FridayAssistantService.isRunning
-                if (handsFreeEnabled) voiceStatus = "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY"
-            }
-        }
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) allFilesGranted = Environment.isExternalStorageManager() }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
@@ -163,6 +157,16 @@ fun FridayApp(vm: FridayViewModel) {
         mutableStateOf(FridayAssistantService.isRunning)
     }
     var voiceStatus by remember { mutableStateOf(if (handsFreeEnabled) "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY" else "") }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                handsFreeEnabled = FridayAssistantService.isRunning
+                if (handsFreeEnabled) voiceStatus = "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY"
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) {
             val serviceIntent = Intent(context, FridayAssistantService::class.java).setAction(FridayAssistantService.ACTION_START)
