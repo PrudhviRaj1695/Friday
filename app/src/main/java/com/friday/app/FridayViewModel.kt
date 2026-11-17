@@ -478,8 +478,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         ) }
                     }
                 }
-                withContext(Dispatchers.IO) { LocalDocumentIndex.saveIndex(getApplication(), found) }
-                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentProgress = 100, documentCurrentFile = "", documentStatus = "Found ${found.size} files • ${found.count { it.content.isNotBlank() }} extracted and searchable • saved locally") }
+                val indexSaved = withContext(Dispatchers.IO) { LocalDocumentIndex.saveIndex(getApplication(), found) }
+                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentProgress = 100, documentCurrentFile = "", documentStatus = "Found ${found.size} files • ${found.count { it.content.isNotBlank() }} extracted and searchable" + if (indexSaved) " • saved locally" else " • index cache could not be saved") }
             } catch (e: Exception) {
                 _state.update { it.copy(scanningDocuments = false, documentCurrentFile = "", documentStatus = e.message ?: "Document scan failed") }
             }
@@ -570,7 +570,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         if (sentence.isNotBlank()) channel.trySend(sentence)
                     }
                 }
-                checkNotNull(conversation).sendMessageAsync(prompt).collect { chunk ->
+                try {
+                    checkNotNull(conversation).sendMessageAsync(prompt).collect { chunk ->
                     if (firstChunkMs == null) firstChunkMs = android.os.SystemClock.elapsedRealtime() - startedAt
                     val piece = chunk.toString()
                     response.append(piece)
@@ -588,9 +589,11 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         lastUiUpdateAt = now
                         lastUiLength = response.length
                     }
+                    }
+                } finally {
+                    queueSpeech(force = true)
+                    speechQueue?.close()
                 }
-                queueSpeech(force = true)
-                speechQueue?.close()
                 val answer = response.toString().trim()
                 val generationMs = (android.os.SystemClock.elapsedRealtime() - startedAt - (firstChunkMs ?: 0L)).coerceAtLeast(0)
                 if (answer.isNotEmpty()) store.append("assistant", answer)
