@@ -64,13 +64,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.util.Locale
 
-private val Night = Color(0xFF070811)
-private val DeepBlue = Color(0xFF101426)
-private val Neon = Color(0xFFB69CFF)
-private val SoftCyan = Color(0xFF8DCBFF)
-private val Muted = Color(0xFFB8C0D8)
-private val Violet = Color(0xFF6853C7)
-private val PinkGlow = Color(0xFFDAA9FF)
+private val Night = Color(0xFF0B0D12)
+private val DeepBlue = Color(0xFF151922)
+private val Neon = Color(0xFF9BBEFF)
+private val SoftCyan = Color(0xFFB6C9E8)
+private val Muted = Color(0xFFAAB2C0)
+private val Violet = Color(0xFF536F9F)
+private val PinkGlow = Color(0xFFB5C9EF)
 
 class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
@@ -83,8 +83,8 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(5, 2, 8)
-        window.navigationBarColor = android.graphics.Color.rgb(5, 2, 8)
+        window.statusBarColor = android.graphics.Color.rgb(11, 13, 18)
+        window.navigationBarColor = android.graphics.Color.rgb(11, 13, 18)
         setContent { FridayApp(fridayViewModel) }
     }
 }
@@ -295,7 +295,7 @@ Last error: ${state.error ?: "none"}
         if (state.messages.isNotEmpty()) chatListState.animateScrollToItem(state.messages.lastIndex)
     }
 
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF16051D), Night, Color(0xFF000000))))) {
+    Box(Modifier.fillMaxSize().background(Color(0xFF0B0D12))) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = if (state.modelReady) Color(0xFF32103D) else Color(0xFF35202C), shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Violet.copy(alpha = .55f))) {
@@ -307,14 +307,14 @@ Last error: ${state.error ?: "none"}
                 }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("FRIDAY", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 5.sp)
-                    Text("YOUR PRIVATE AI COMPANION", color = Neon, fontSize = 8.sp, letterSpacing = 1.5.sp)
+                    Text("Friday", color = Color(0xFFF1F3F7), fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp)
+                    Text("PERSONAL AI ASSISTANT", color = Muted, fontSize = 9.sp, letterSpacing = 1.2.sp)
                 }
                 Spacer(Modifier.width(12.dp))
                 Text("⋮", color = Color.White, fontSize = 24.sp, modifier = Modifier.clickable { setupOpen = true }.padding(horizontal = 4.dp))
             }
 
-            Box(Modifier.fillMaxWidth().height(188.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(168.dp), contentAlignment = Alignment.Center) {
                 FridayOrb(active = state.busy || voiceStatus.isNotBlank())
                 Column(Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (voiceStatus.isNotBlank()) voiceStatus else if (state.busy) "THINKING…" else "AT YOUR SERVICE", color = Neon, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
@@ -322,9 +322,9 @@ Last error: ${state.error ?: "none"}
                 }
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("YOUR CONVERSATION", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
+                Text("Conversation", color = Color(0xFFF1F3F7), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
-                Text("PRIVATE • ON-DEVICE", color = Neon, fontSize = 8.sp, letterSpacing = 1.sp)
+                Text("ON-DEVICE", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
             }
             LazyColumn(
                 state = chatListState,
@@ -341,9 +341,9 @@ Last error: ${state.error ?: "none"}
                     val isUser = message.role == "user"
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
                         Surface(
-                            color = if (isUser) Color(0xFF292448) else Color(0xFF151A29),
+                            color = if (isUser) Color(0xFF24344D) else Color(0xFF171B23),
                             shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, (if (isUser) PinkGlow else Violet).copy(alpha = .30f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, (if (isUser) Neon else Color(0xFF343B48)).copy(alpha = .28f)),
                             modifier = Modifier.widthIn(max = 320.dp)
                         ) {
                             Text(
@@ -445,8 +445,10 @@ Last error: ${state.error ?: "none"}
 
     if (debugOpen) {
         AlertDialog(
+            modifier = Modifier.fillMaxWidth(),
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
             onDismissRequest = { debugOpen = false },
-            containerColor = Color(0xFF0B1C2E),
+            containerColor = Color(0xFF151922),
             title = {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text("Diagnostics center", color = Color.White, fontWeight = FontWeight.SemiBold)
@@ -495,23 +497,30 @@ Last error: ${state.error ?: "none"}
 
     if (setupOpen) {
         AlertDialog(
+            modifier = Modifier.fillMaxWidth(),
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
             onDismissRequest = { setupOpen = false },
-            containerColor = Color(0xFF0B1C2E),
-            title = { Text("FRIDAY setup", color = Color.White) },
+            containerColor = Color(0xFF151922),
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Settings", color = Color(0xFFF1F3F7), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Configure your assistant and connected device capabilities", color = Muted, fontSize = 11.sp)
+                }
+            },
             text = {
                 Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("PERSONAL INTELLIGENCE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Personal intelligence", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text("Encrypted on-device profile • learns only what you choose to save", color = Muted, fontSize = 10.sp)
                     OutlinedButton(onClick = { profileDraft = state.personalProfile; profileOpen = true }) { Text("Customize how FRIDAY knows and assists me", color = Neon) }
                     HorizontalDivider(color = Color(0xFF30334A))
-                    Text("LANGUAGE & VOICE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Language & voice", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text("Choose the language FRIDAY uses for replies.", color = Muted, fontSize = 11.sp)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         listOf("English", "Telugu").forEach { lang ->
                             FilterChip(selected = state.responseLanguage == lang, onClick = { vm.setResponseLanguage(lang) }, label = { Text(if (lang == "Telugu") "తెలుగు" else "English") })
                         }
                     }
-                    Text("PERSONALITY STUDIO", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Personality", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     var personalityMenuOpen by remember { mutableStateOf(false) }
                     Box {
                         OutlinedButton(onClick = { personalityMenuOpen = true }) { Text("Active: ${state.activePersonality}", color = Neon) }
@@ -529,23 +538,23 @@ Last error: ${state.error ?: "none"}
                     OutlinedTextField(value = personalityNameDraft, onValueChange = { personalityNameDraft = it }, label = { Text("Custom profile name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = personalityPromptDraft, onValueChange = { personalityPromptDraft = it }, label = { Text("Custom response instructions") }, minLines = 3, modifier = Modifier.fillMaxWidth())
                     Button(onClick = { vm.setPersonality(personalityNameDraft.ifBlank { "Custom" }, personalityPromptDraft) }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Save and activate personality", color = Night) }
-                    Text("CREATIVITY • PROMPT-GUIDED", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Response creativity", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text("Creativity: ${"%.1f".format(state.creativity)}  •  This guides response style; it is not native token-sampling temperature.", color = Muted, fontSize = 10.sp)
                     Slider(value = state.creativity, onValueChange = vm::setCreativity, valueRange = 0f..2f)
-                    Text("CONTENT STYLE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Content style", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         listOf("Strict", "Balanced", "Relaxed").forEach { style ->
                             FilterChip(selected = state.contentStyle == style, onClick = { vm.setContentStyle(style) }, label = { Text(style, fontSize = 11.sp) })
                         }
                     }
                     Text("Relaxed changes ordinary language style only; core safety protections remain active.", color = Muted, fontSize = 10.sp)
-                    Text("CHAT READABILITY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Chat readability", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text("Message text size: ${state.chatFontSize} sp", color = Muted, fontSize = 11.sp)
                     Slider(value = state.chatFontSize.toFloat(), onValueChange = { vm.setChatFontSize(it.toInt()) }, valueRange = 14f..24f, steps = 9)
                     
                     Text("Your profile shapes tone, answer structure, goals and working context. It does not retrain model weights.", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("LOCAL MODEL LIBRARY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Text("Local model", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     val selectedModel = FridayViewModel.MODEL_OPTIONS.firstOrNull { it.id == state.selectedModelId } ?: FridayViewModel.MODEL_OPTIONS.first()
                     Text(selectedModel.name + " • " + selectedModel.expectedSize, color = Color.White, fontSize = 14.sp)
                     Text(selectedModel.description, color = Muted, fontSize = 11.sp)
@@ -584,12 +593,12 @@ Last error: ${state.error ?: "none"}
                     }
                     Text("Models stay on this phone in app-private storage. Download only one at a time; larger models need more free storage and RAM.", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("VOICE INPUT • ON-DEVICE FIRST", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Voice input", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available on this phone. FRIDAY selects it before the system recognizer." else "On-device speech recognition is not exposed by the installed speech service. Android may use its configured recognition provider.",
                         color = Muted, fontSize = 10.sp
                     )
-                    Text("VOICE OUTPUT • KOKORO NEURAL TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Voice output", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text("Kokoro-82M • Sherpa-ONNX • on-device CPU inference • no cloud voice requests", color = Muted, fontSize = 10.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
                     if (state.voiceDownloading) {
@@ -604,7 +613,7 @@ Last error: ${state.error ?: "none"}
                         Button(onClick = { vm.testVoice() }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Test neural voice", color = Night) }
                     }
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("NOTIFICATIONS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Notifications", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text("Local status alerts only • no message, document or personal content is included.", color = Muted, fontSize = 10.sp)
                     OutlinedButton(onClick = {
                         if (Build.VERSION.SDK_INT >= 33 && androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
@@ -623,7 +632,7 @@ Last error: ${state.error ?: "none"}
                     }
                     state.error?.let { Text(it, color = Color(0xFFFF9CA9), fontSize = 11.sp) }
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("DOCUMENT INTELLIGENCE • LOCAL ONLY", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Documents & knowledge", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(if (allFilesGranted) "Broad shared-storage access: GRANTED" else "Broad shared-storage access: NOT GRANTED", color = Muted, fontSize = 12.sp)
                     Text("Choose a folder or grant shared-storage access. FRIDAY extracts searchable text locally from TXT, Markdown, CSV, JSON, XML, HTML, LOG, PDF and Office Open XML files (DOCX, XLSX, PPTX). It cannot read other apps private data.", color = Muted, fontSize = 10.sp)
                     Button(onClick = {
@@ -651,7 +660,7 @@ Last error: ${state.error ?: "none"}
                     }
                     if (state.localDocuments.size > 20) Text("…and ${state.localDocuments.size - 20} more", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
-                    Text("GOOGLE ACCOUNT & PERSONAL CONTEXT", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("Google connections", color = Neon, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     Text(if (state.googleConnected) "CONNECTED • local snapshot available" else state.googleStatus, color = if (state.googleConnected) Neon else Muted, fontSize = 12.sp)
                     Text(if (state.googleConnected) "Google authorization is active for this local snapshot. Refresh to fetch the latest approved data. FRIDAY only injects matching cached records into relevant prompts." else "Choose your Google account and approve read-only access to Drive, Gmail, Calendar and Contacts. OAuth must match package com.friday.app and this APK signing SHA-1.", color = Muted, fontSize = 10.sp)
                     Button(onClick = {
@@ -689,7 +698,7 @@ Last error: ${state.error ?: "none"}
     }
 
     if (profileOpen) {
-        AlertDialog(onDismissRequest = { profileOpen = false }, containerColor = Color(0xFF0B1C2E),
+        AlertDialog(modifier = Modifier.fillMaxWidth(), properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false), onDismissRequest = { profileOpen = false }, containerColor = Color(0xFF151922),
             title = { Text("Personal Intelligence", color = Color.White) },
             text = {
                 Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -779,12 +788,12 @@ private fun FridayOrb(active: Boolean) {
     Canvas(Modifier.fillMaxHeight().aspectRatio(1f).padding(4.dp)) {
         val center = Offset(size.width / 2f, size.height / 2f)
         val radius = size.minDimension * .31f * pulse
-        drawCircle(Brush.radialGradient(listOf(Color(0x66E34BFF), Color(0x332C0A42), Color.Transparent), center, radius * 2.35f), radius * 2.35f, center)
-        drawCircle(Brush.radialGradient(listOf(Color(0xAAE65BFF), Color(0x665E168C), Color(0x2224003A), Color.Transparent), center, radius * 1.9f), radius * 1.9f, center)
-        drawCircle(Color(0x44F04DFF), radius * 1.42f, center, style = Stroke(width = 1.2.dp.toPx()))
-        drawCircle(Color(0x77D65BFF), radius * 1.08f, center, style = Stroke(width = 1.dp.toPx()))
-        drawCircle(Brush.radialGradient(listOf(Color(0xFFFF9BEA), Color(0xFF9C2BC7), Color(0xFF180522)), center, radius), radius, center)
-        drawCircle(Color(0x88F7A1FF), radius * .58f, center, style = Stroke(width = 1.5.dp.toPx()))
+        drawCircle(Brush.radialGradient(listOf(Color(0x553C79C8), Color(0x22233D68), Color.Transparent), center, radius * 2.35f), radius * 2.35f, center)
+        drawCircle(Brush.radialGradient(listOf(Color(0x887AA8E8), Color(0x44405F91), Color(0x221A2B48), Color.Transparent), center, radius * 1.9f), radius * 1.9f, center)
+        drawCircle(Color(0x443D79C8), radius * 1.42f, center, style = Stroke(width = 1.2.dp.toPx()))
+        drawCircle(Color(0x667AA8E8), radius * 1.08f, center, style = Stroke(width = 1.dp.toPx()))
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFD7E6FF), Color(0xFF4678B8), Color(0xFF17263D)), center, radius), radius, center)
+        drawCircle(Color(0x88D7E6FF), radius * .58f, center, style = Stroke(width = 1.5.dp.toPx()))
         drawCircle(Color(0x66FFFFFF), radius * .16f, Offset(center.x - radius * .24f, center.y - radius * .48f))
         val orbit = radius * 1.48f
         for (i in 0 until 9) {
