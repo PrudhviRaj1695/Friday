@@ -146,6 +146,7 @@ fun FridayApp(vm: FridayViewModel) {
     val handsFreeNow = rememberUpdatedState(handsFreeEnabled)
     val awaitingCommandNow = rememberUpdatedState(awaitingWakeCommand)
     val modelReadyNow = rememberUpdatedState(state.modelReady)
+    val responseLanguageNow = rememberUpdatedState(state.responseLanguage)
     val busyNow = rememberUpdatedState(state.busy)
     val voicePlayingNow = rememberUpdatedState(state.voicePlaying)
     val speechRecognizer = remember {
@@ -158,7 +159,7 @@ fun FridayApp(vm: FridayViewModel) {
         if (handsFreeNow.value && !busyNow.value && !voicePlayingNow.value && speechRecognizer != null) {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (state.responseLanguage == "Telugu") "te-IN" else "en-IN")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (responseLanguageNow.value == "Telugu") "te-IN" else "en-IN")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
@@ -260,7 +261,6 @@ fun FridayApp(vm: FridayViewModel) {
             handsFreeEnabled = true
             awaitingWakeCommand = false
             voiceStatus = "HANDS-FREE ACTIVE • SAY “FRIDAY”"
-            startHandsFreeListening()
         } else voiceStatus = if (speechRecognizer == null) "ON-DEVICE SPEECH RECOGNITION NOT AVAILABLE • INSTALL AN OFFLINE SPEECH PACK" else "MICROPHONE PERMISSION DENIED"
     }
 
