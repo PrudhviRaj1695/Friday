@@ -80,7 +80,18 @@ private val Violet = Color(0xFF6853C7)
 private val PinkGlow = Color(0xFFDAA9FF)
 
 class MainActivity : ComponentActivity() {
+    companion object { @Volatile var activeViewModel: FridayViewModel? = null }
     private val fridayViewModel: FridayViewModel by viewModels()
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        activeViewModel = fridayViewModel
+    }
+
+    override fun onDestroy() {
+        if (activeViewModel === fridayViewModel) activeViewModel = null
+        super.onDestroy()
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 7401 && resultCode == android.app.Activity.RESULT_OK) {
