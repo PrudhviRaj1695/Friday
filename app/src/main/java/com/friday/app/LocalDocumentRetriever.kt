@@ -155,29 +155,13 @@ object LocalDocumentRetriever {
         return result
     }
 
-    // Indic scripts use combining vowel signs (Unicode marks) inside words.
-    // Treating only letters/digits as token characters splits Telugu words into unusable fragments.
-    private fun isTokenCharacter(ch: Char): Boolean {
-        val type = Character.getType(ch)
-        return ch.isLetterOrDigit() ||
-            type == Character.NON_SPACING_MARK.toInt() ||
-            type == Character.COMBINING_SPACING_MARK.toInt() ||
-            type == Character.ENCLOSING_MARK.toInt()
-    }
-
-    private fun normalize(text: String): String = buildString {
-        var previousWasSpace = true
-        text.lowercase(Locale.ROOT).forEach { ch ->
-            if (isTokenCharacter(ch)) {
-                append(ch)
-                previousWasSpace = false
-            } else if (!previousWasSpace) {
-                append(' ')
-                previousWasSpace = true
-            }
-        }
-    }.trim()
+    // Unicode regex properties are code-point aware and retain Telugu vowel signs,
+    // other Indic combining marks, Latin letters, and digits as part of the same token.
+    private fun normalize(text: String): String =
+        text.lowercase(Locale.ROOT)
+            .replace(Regex("[^\\p{L}\\p{M}\\p{N}]+"), " ")
+            .trim()
 
     private fun tokens(text: String): List<String> =
-        normalize(text).split(' ').filter { it.length >= 2 }
+        normalize(text).split(Regex("\\s+")).filter { it.isNotBlank() && (it.length >= 2 || it.any { ch -> ch.isDigit() }) }
 }
