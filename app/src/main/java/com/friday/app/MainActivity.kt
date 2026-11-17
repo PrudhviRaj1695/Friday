@@ -171,7 +171,7 @@ fun FridayApp(vm: FridayViewModel) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 handsFreeEnabled = FridayAssistantService.isRunning
-                if (handsFreeEnabled) voiceStatus = "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY"
+                voiceStatus = if (handsFreeEnabled) "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY" else if (voiceStatus.contains("BACKGROUND ASSISTANT")) "BACKGROUND ASSISTANT OFF" else voiceStatus
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -641,11 +641,13 @@ Last error: ${state.error ?: "none"}
                     Text("VOICE INPUT • ON-DEVICE FIRST", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("BACKGROUND WAKE WORD • SAY “FRIDAY” WITHOUT OPENING THE APP", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Text("Enable the microphone control once. FRIDAY then runs a local wake-word foreground service with a persistent notification, even after you leave the app. Stop it from the notification or the same control.", color = Muted, fontSize = 10.sp)
-                    Text("Enable this once while FRIDAY is open. After the persistent notification says Listening, you do not need to touch the mic again: say “Friday”, pause briefly, then ask. It continues with the screen locked. Android blocks microphone auto-start after reboot or force-stop, so enable it again after those events. Continuous listening uses battery.", color = Muted, fontSize = 10.sp)
+                    Text("Enable this once while FRIDAY is open. After the persistent notification says Listening, you do not need to touch the mic again: say “Friday”, pause briefly, then ask. It continues with the screen locked. Android blocks microphone auto-start after reboot or force-stop. Open FRIDAY once after those events; it will restore your previous opt-in. Continuous listening uses battery.", color = Muted, fontSize = 10.sp)
                     Text(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available. FRIDAY uses it for private offline command transcription." else "Offline speech recognition is unavailable. Install an offline language pack / speech service before enabling the background assistant.",
                         color = Muted, fontSize = 10.sp
                     )
+                    Text("SAMSUNG BATTERY SETTINGS", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("For reliable screen-off listening, set Settings → Apps → FRIDAY → Battery → Unrestricted, and add FRIDAY to Never auto sleeping apps if One UI places it in a sleeping list.", color = Muted, fontSize = 10.sp)
                     Text("VOICE OUTPUT • KOKORO NEURAL TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("Kokoro-82M • Sherpa-ONNX • on-device CPU inference • no cloud voice requests", color = Muted, fontSize = 10.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)
