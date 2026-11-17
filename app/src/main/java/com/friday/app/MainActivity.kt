@@ -64,13 +64,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import java.util.Locale
 
-private val Night = Color(0xFF070811)
-private val DeepBlue = Color(0xFF101426)
-private val Neon = Color(0xFFB69CFF)
-private val SoftCyan = Color(0xFF8DCBFF)
-private val Muted = Color(0xFFB8C0D8)
-private val Violet = Color(0xFF6853C7)
-private val PinkGlow = Color(0xFFDAA9FF)
+private val Night = Color(0xFF0B0D12)
+private val DeepBlue = Color(0xFF151922)
+private val Neon = Color(0xFF9BBEFF)
+private val SoftCyan = Color(0xFFB6C9E8)
+private val Muted = Color(0xFFAAB2C0)
+private val Violet = Color(0xFF536F9F)
+private val PinkGlow = Color(0xFFB5C9EF)
 
 class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
@@ -295,7 +295,7 @@ Last error: ${state.error ?: "none"}
         if (state.messages.isNotEmpty()) chatListState.animateScrollToItem(state.messages.lastIndex)
     }
 
-    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF16051D), Night, Color(0xFF000000))))) {
+    Box(Modifier.fillMaxSize().background(Color(0xFF0B0D12))) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(horizontal = 16.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(color = if (state.modelReady) Color(0xFF32103D) else Color(0xFF35202C), shape = RoundedCornerShape(30.dp), border = androidx.compose.foundation.BorderStroke(1.dp, Violet.copy(alpha = .55f))) {
@@ -307,14 +307,14 @@ Last error: ${state.error ?: "none"}
                 }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("FRIDAY", color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 5.sp)
-                    Text("YOUR PRIVATE AI COMPANION", color = Neon, fontSize = 8.sp, letterSpacing = 1.5.sp)
+                    Text("Friday", color = Color(0xFFF1F3F7), fontSize = 22.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.2.sp)
+                    Text("PERSONAL AI ASSISTANT", color = Muted, fontSize = 9.sp, letterSpacing = 1.2.sp)
                 }
                 Spacer(Modifier.width(12.dp))
                 Text("⋮", color = Color.White, fontSize = 24.sp, modifier = Modifier.clickable { setupOpen = true }.padding(horizontal = 4.dp))
             }
 
-            Box(Modifier.fillMaxWidth().height(188.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.fillMaxWidth().height(168.dp), contentAlignment = Alignment.Center) {
                 FridayOrb(active = state.busy || voiceStatus.isNotBlank())
                 Column(Modifier.align(Alignment.BottomCenter), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (voiceStatus.isNotBlank()) voiceStatus else if (state.busy) "THINKING…" else "AT YOUR SERVICE", color = Neon, fontSize = 9.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
@@ -322,9 +322,9 @@ Last error: ${state.error ?: "none"}
                 }
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("YOUR CONVERSATION", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp)
+                Text("Conversation", color = Color(0xFFF1F3F7), fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Spacer(Modifier.weight(1f))
-                Text("PRIVATE • ON-DEVICE", color = Neon, fontSize = 8.sp, letterSpacing = 1.sp)
+                Text("ON-DEVICE", color = Muted, fontSize = 9.sp, letterSpacing = 1.sp)
             }
             LazyColumn(
                 state = chatListState,
@@ -341,9 +341,9 @@ Last error: ${state.error ?: "none"}
                     val isUser = message.role == "user"
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
                         Surface(
-                            color = if (isUser) Color(0xFF292448) else Color(0xFF151A29),
+                            color = if (isUser) Color(0xFF24344D) else Color(0xFF171B23),
                             shape = RoundedCornerShape(20.dp),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, (if (isUser) PinkGlow else Violet).copy(alpha = .30f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, (if (isUser) Neon else Color(0xFF343B48)).copy(alpha = .28f)),
                             modifier = Modifier.widthIn(max = 320.dp)
                         ) {
                             Text(
@@ -495,9 +495,16 @@ Last error: ${state.error ?: "none"}
 
     if (setupOpen) {
         AlertDialog(
+            modifier = Modifier.fillMaxWidth(),
+            properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false),
             onDismissRequest = { setupOpen = false },
-            containerColor = Color(0xFF0B1C2E),
-            title = { Text("FRIDAY setup", color = Color.White) },
+            containerColor = Color(0xFF151922),
+            title = {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Settings", color = Color(0xFFF1F3F7), fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+                    Text("Configure your assistant and connected device capabilities", color = Muted, fontSize = 11.sp)
+                }
+            },
             text = {
                 Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("PERSONAL INTELLIGENCE", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
