@@ -153,6 +153,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     @Volatile private var googleContext = GoogleContextSync.cachedContext(app)
     private val _state = MutableStateFlow(FridayState(
         messages = store.readRecent(100),
+        localDocuments = LocalDocumentIndex.loadIndex(app),
         personalProfile = personalMemory.read(),
         cloudApprovalEnabled = prefs.getBoolean("cloud_approval", false),
         speakReplies = prefs.getBoolean("speak_replies", true),
@@ -476,7 +477,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                         ) }
                     }
                 }
-                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentProgress = 100, documentCurrentFile = "", documentStatus = "Found ${found.size} files • ${found.count { it.content.isNotBlank() }} extracted and searchable") }
+                withContext(Dispatchers.IO) { LocalDocumentIndex.saveIndex(getApplication(), found) }
+                _state.update { it.copy(localDocuments = found, scanningDocuments = false, documentProgress = 100, documentCurrentFile = "", documentStatus = "Found ${found.size} files • ${found.count { it.content.isNotBlank() }} extracted and searchable • saved locally") }
             } catch (e: Exception) {
                 _state.update { it.copy(scanningDocuments = false, documentCurrentFile = "", documentStatus = e.message ?: "Document scan failed") }
             }
