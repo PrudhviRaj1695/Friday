@@ -245,6 +245,21 @@ fun FridayApp(vm: FridayViewModel) {
         onDispose { speechRecognizer?.cancel(); speechRecognizer?.destroy() }
     }
 
+    // Keep the microphone lifecycle visible and foreground-only; background hotword listening
+    // requires a dedicated microphone foreground service and persistent notification.
+    DisposableEffect(lifecycleOwner, speechRecognizer) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE && handsFreeEnabled) {
+                handsFreeEnabled = false
+                awaitingWakeCommand = false
+                speechRecognizer?.cancel()
+                voiceStatus = "HANDS-FREE PAUSED • REOPEN FRIDAY TO RESUME"
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     LaunchedEffect(handsFreeEnabled, state.busy, state.voicePlaying) {
         if (handsFreeEnabled && !state.busy && !state.voicePlaying) {
             kotlinx.coroutines.delay(350)
