@@ -114,6 +114,7 @@ class FridayAssistantService : Service() {
             status("Wake-word setup failed: ${e.message ?: e.javaClass.simpleName}")
             active.set(false); isRunning = false
             getSharedPreferences("friday_settings", MODE_PRIVATE).edit().putBoolean("background_assistant_enabled", false).apply()
+            stopSelf()
         }
     }
 
