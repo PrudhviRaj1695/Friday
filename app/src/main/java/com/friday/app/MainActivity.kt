@@ -84,6 +84,16 @@ class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
     override fun onDestroy() {
         if (activeViewModel === fridayViewModel) activeViewModel = null
+        // Move the AI runtime into the service before the UI ViewModel is cleared.
+        // This keeps wake-word commands working after the user exits the chat screen.
+        if (!isChangingConfigurations && FridayAssistantService.isRunning) {
+            runCatching {
+                startService(
+                    Intent(this, FridayAssistantService::class.java)
+                        .setAction(FridayAssistantService.ACTION_ENSURE_RUNTIME)
+                )
+            }
+        }
         super.onDestroy()
     }
 
