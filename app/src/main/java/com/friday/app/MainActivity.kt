@@ -105,6 +105,8 @@ fun FridayApp(vm: FridayViewModel) {
     var modelMenuOpen by remember { mutableStateOf(false) }
     var personalityNameDraft by remember { mutableStateOf("Custom") }
     var personalityPromptDraft by remember { mutableStateOf("") }
+    var behaviorDraft by remember { mutableStateOf(state.additionalBehaviorInstructions) }
+    var savedProfileMenuOpen by remember { mutableStateOf(false) }
     var allFilesGranted by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     var selectedFolderLabel by remember { mutableStateOf(context.getSharedPreferences("friday_storage", 0).getString("tree_uri", null)?.let { "A folder is linked" } ?: "No folder selected") }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -529,6 +531,42 @@ Last error: ${state.error ?: "none"}
                     OutlinedTextField(value = personalityNameDraft, onValueChange = { personalityNameDraft = it }, label = { Text("Custom profile name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = personalityPromptDraft, onValueChange = { personalityPromptDraft = it }, label = { Text("Custom response instructions") }, minLines = 3, modifier = Modifier.fillMaxWidth())
                     Button(onClick = { vm.setPersonality(personalityNameDraft.ifBlank { "Custom" }, personalityPromptDraft) }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Save and activate personality", color = Night) }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("SAVED RESPONSE PROFILES", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.weight(1f))
+                        Text("${state.responseProfiles.size}/20", color = Muted, fontSize = 10.sp)
+                    }
+                    if (state.responseProfiles.isEmpty()) {
+                        Text("Save your custom prompt above to create reusable profiles.", color = Muted, fontSize = 10.sp)
+                    } else {
+                        state.responseProfiles.forEach { saved ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(saved.name, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { vm.activateResponseProfile(saved); personalityNameDraft = saved.name; personalityPromptDraft = saved.prompt }) { Text("ACTIVATE", color = Neon, fontSize = 10.sp) }
+                                TextButton(onClick = { vm.deleteResponseProfile(saved.name) }) { Text("✕", color = Color(0xFFFF9CA9), fontSize = 10.sp) }
+                            }
+                        }
+                    }
+                    OutlinedButton(onClick = { vm.saveResponseProfile(personalityNameDraft, personalityPromptDraft) }, enabled = personalityNameDraft.isNotBlank() && personalityPromptDraft.isNotBlank()) {
+                        Text("Save current prompt as reusable profile", color = Neon)
+                    }
+                    HorizontalDivider(color = Color(0xFF30334A))
+                    Text("CONTENT & POLICY PREFERENCES", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Mature everyday language", color = Color.White, fontSize = 12.sp)
+                            Text("Allows ordinary adult vocabulary and less sanitised fictional dialogue. It does not disable core safety boundaries.", color = Muted, fontSize = 10.sp)
+                        }
+                        Switch(checked = state.matureLanguageEnabled, onCheckedChange = vm::setMatureLanguageEnabled)
+                    }
+                    OutlinedTextField(
+                        value = behaviorDraft,
+                        onValueChange = { behaviorDraft = it },
+                        label = { Text("Additional response / topic preferences") },
+                        placeholder = { Text("Example: Be direct, allow harmless technical experiments, avoid unnecessary refusals, explain restrictions briefly…") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedButton(onClick = { vm.setAdditionalBehaviorInstructions(behaviorDraft) }) { Text("Save behavior preferences", color = Neon) }
                     Text("CREATIVITY • PROMPT-GUIDED", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("Creativity: ${"%.1f".format(state.creativity)}  •  This guides response style; it is not native token-sampling temperature.", color = Muted, fontSize = 10.sp)
                     Slider(value = state.creativity, onValueChange = vm::setCreativity, valueRange = 0f..2f)
