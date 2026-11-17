@@ -140,61 +140,128 @@ fun FridayApp(vm: FridayViewModel) {
             }
         }
     }
+    var handsFreeEnabled by remember { mutableStateOf(false) }
+    var awaitingWakeCommand by remember { mutableStateOf(false) }
+    var wakeCommandSubmitted by remember { mutableStateOf(false) }
+    val handsFreeNow = rememberUpdatedState(handsFreeEnabled)
+    val awaitingCommandNow = rememberUpdatedState(awaitingWakeCommand)
+    val modelReadyNow = rememberUpdatedState(state.modelReady)
+    val busyNow = rememberUpdatedState(state.busy)
+    val voicePlayingNow = rememberUpdatedState(state.voicePlaying)
     val speechRecognizer = remember {
+        // Hands-free mode is deliberately on-device only; never silently fall back to a cloud recognizer.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
             SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            SpeechRecognizer.createSpeechRecognizer(context)
         } else null
+    }
+    val startHandsFreeListening: () -> Unit = {
+        if (handsFreeNow.value && !busyNow.value && !voicePlayingNow.value && speechRecognizer != null) {
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (state.responseLanguage == "Telugu") "te-IN" else "en-IN")
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 900L)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 650L)
+            }
+            runCatching { speechRecognizer.startListening(intent) }
+                .onFailure { voiceStatus = "VOICE START FAILED • ${it.message ?: "try again"}" }
+        }
     }
 
     DisposableEffect(speechRecognizer) {
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { voiceStatus = "LISTENING" }
+            override fun onReadyForSpeech(params: Bundle?) { if (handsFreeNow.value) voiceStatus = if (awaitingCommandNow.value) "FRIDAY IS LISTENING • SPEAK NOW" else "WAITING FOR “FRIDAY”" }
             override fun onBeginningOfSpeech() { voiceStatus = "HEARING YOU" }
             override fun onRmsChanged(rmsdB: Float) = Unit
             override fun onBufferReceived(buffer: ByteArray?) = Unit
             override fun onEndOfSpeech() { voiceStatus = "PROCESSING…" }
             override fun onError(error: Int) {
-                voiceStatus = when (error) {
-                    SpeechRecognizer.ERROR_AUDIO -> "MICROPHONE AUDIO ERROR"
-                    SpeechRecognizer.ERROR_CLIENT -> "SPEECH SERVICE CLIENT ERROR"
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "MICROPHONE PERMISSION DENIED"
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "SPEECH SERVICE NETWORK ERROR"
-                    SpeechRecognizer.ERROR_NO_MATCH -> "NO SPEECH RECOGNIZED • TRY AGAIN"
-                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "SPEECH SERVICE BUSY"
-                    SpeechRecognizer.ERROR_SERVER -> "SPEECH SERVICE SERVER ERROR"
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "NO SPEECH DETECTED"
-                    else -> "SPEECH ERROR • $error"
+                if (handsFreeNow.value) {
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ startHandsFreeListening() }, 450)
+                } else {
+                    voiceStatus = when (error) {
+                        SpeechRecognizer.ERROR_AUDIO -> "MICROPHONE AUDIO ERROR"
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "MICROPHONE PERMISSION DENIED"
+                        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "SPEECH SERVICE BUSY"
+                        SpeechRecognizer.ERROR_SERVER -> "ON-DEVICE SPEECH SERVICE ERROR"
+                        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "WAITING FOR “FRIDAY”"
+                        else -> "SPEECH ERROR • $error"
+                    }
                 }
             }
             override fun onResults(results: Bundle?) {
-                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!spoken.isNullOrBlank()) {
-                    if (state.modelReady) vm.send(spoken) else voiceStatus = "LOCAL MODEL IS NOT READY"
-                    if (state.modelReady) voiceStatus = ""
-                } else voiceStatus = "NO SPEECH RECOGNIZED • TAP MIC AND TRY AGAIN"
+                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
+                if (!handsFreeNow.value) {
+                    if (spoken.isNotBlank() && modelReadyNow.value) vm.send(spoken)
+                    else if (!modelReadyNow.value) voiceStatus = "LOCAL MODEL IS NOT READY"
+                    return
+                }
+                val normalized = spoken.lowercase(Locale.ROOT)
+                val stopPhrase = normalized in setOf("stop listening", "friday stop", "cancel listening", "go to sleep")
+                if (stopPhrase) {
+                    handsFreeEnabled = false
+                    awaitingWakeCommand = false
+                    voiceStatus = "HANDS-FREE OFF"
+                    return
+                }
+                if (awaitingCommandNow.value) {
+                    awaitingWakeCommand = false
+                    if (spoken.isNotBlank() && modelReadyNow.value) {
+                        wakeCommandSubmitted = true
+                        vm.send(spoken)
+                        voiceStatus = "FRIDAY IS THINKING…"
+                    } else {
+                        voiceStatus = "LOCAL MODEL NOT READY"
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ startHandsFreeListening() }, 350)
+                    }
+                    return
+                }
+                val wake = Regex("\\bfriday\\b", RegexOption.IGNORE_CASE).find(spoken)
+                if (wake != null) {
+                    val command = spoken.substring(wake.range.last + 1).trim().trimStart(',', '.', '!', ':')
+                    if (command.isBlank()) {
+                        awaitingWakeCommand = true
+                        voiceStatus = "YES? I'M LISTENING"
+                        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ startHandsFreeListening() }, 250)
+                    } else if (modelReadyNow.value) {
+                        wakeCommandSubmitted = true
+                        vm.send(command)
+                        voiceStatus = "FRIDAY IS THINKING…"
+                    } else voiceStatus = "LOCAL MODEL IS NOT READY"
+                } else {
+                    voiceStatus = "WAITING FOR “FRIDAY”"
+                    android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({ startHandsFreeListening() }, 250)
+                }
             }
             override fun onPartialResults(partialResults: Bundle?) {
                 val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!partial.isNullOrBlank()) voiceStatus = "HEARING • $partial"
+                if (!partial.isNullOrBlank()) voiceStatus = if (handsFreeNow.value) "HOTWORD LISTENING • $partial" else "HEARING • $partial"
             }
             override fun onEvent(eventType: Int, params: Bundle?) = Unit
         })
-        onDispose { speechRecognizer?.destroy() }
+        onDispose { speechRecognizer?.cancel(); speechRecognizer?.destroy() }
     }
 
+    LaunchedEffect(handsFreeEnabled, state.busy, state.voicePlaying) {
+        if (handsFreeEnabled && !state.busy && !state.voicePlaying) {
+            kotlinx.coroutines.delay(350)
+            startHandsFreeListening()
+            if (wakeCommandSubmitted) {
+                wakeCommandSubmitted = false
+                awaitingWakeCommand = false
+            }
+        }
+    }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted && speechRecognizer != null) {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            }
-            speechRecognizer.startListening(intent)
-        } else voiceStatus = if (speechRecognizer == null) "SPEECH SERVICE UNAVAILABLE" else "MICROPHONE PERMISSION DENIED"
+            handsFreeEnabled = true
+            awaitingWakeCommand = false
+            voiceStatus = "HANDS-FREE ACTIVE • SAY “FRIDAY”"
+            startHandsFreeListening()
+        } else voiceStatus = if (speechRecognizer == null) "ON-DEVICE SPEECH RECOGNITION NOT AVAILABLE • INSTALL AN OFFLINE SPEECH PACK" else "MICROPHONE PERMISSION DENIED"
     }
 
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -370,8 +437,15 @@ Last error: ${state.error ?: "none"}
                         (context as? android.app.Activity)?.requestPermissions(arrayOf(Manifest.permission.CAMERA), 7402)
                     }
                 }, enabled = !state.busy) { Text("📷", fontSize = 21.sp) }
-                IconButton(onClick = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }, enabled = !state.busy) {
-                    Text("🎙", fontSize = 22.sp)
+                IconButton(onClick = {
+                    if (handsFreeEnabled) {
+                        handsFreeEnabled = false
+                        awaitingWakeCommand = false
+                        speechRecognizer?.cancel()
+                        voiceStatus = "HANDS-FREE OFF"
+                    } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                }) {
+                    Text(if (handsFreeEnabled) "🔴" else "🎙", fontSize = 22.sp)
                 }
                 OutlinedTextField(
                     value = input,
