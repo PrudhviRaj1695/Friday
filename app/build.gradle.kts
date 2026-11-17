@@ -45,5 +45,6 @@ dependencies {
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.android.gms:play-services-auth:21.5.0")
 
+    testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
