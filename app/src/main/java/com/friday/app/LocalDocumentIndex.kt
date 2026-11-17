@@ -14,6 +14,7 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import java.io.File
+import java.io.ByteArrayOutputStream
 import java.io.InputStream
 import java.util.Locale
 import java.util.zip.ZipInputStream
@@ -41,6 +42,7 @@ object LocalDocumentIndex {
     private const val INDEX_FILE = "friday_document_index.json.gz"
     private const val MAX_INDEX_TEXT_CHARS = 12_000_000
     private const val MAX_INDEX_FILE_BYTES = 40_000_000L
+    private const val MAX_INDEX_UNCOMPRESSED_BYTES = 80_000_000L
 
     /** Persist extracted text locally so RAG survives app restarts and process death. */
     fun saveIndex(context: Context, documents: List<LocalDocument>): Boolean = runCatching {
@@ -74,7 +76,20 @@ object LocalDocumentIndex {
     fun loadIndex(context: Context): List<LocalDocument> = runCatching {
         val file = File(context.filesDir, INDEX_FILE)
         if (!file.isFile || file.length() !in 1..MAX_INDEX_FILE_BYTES) return emptyList()
-        val payload = GZIPInputStream(file.inputStream().buffered()).bufferedReader(Charsets.UTF_8).use { it.readText() }
+        val payloadBytes = GZIPInputStream(file.inputStream().buffered()).use { gzip ->
+            val output = ByteArrayOutputStream()
+            val buffer = ByteArray(8 * 1024)
+            var total = 0L
+            while (true) {
+                val count = gzip.read(buffer)
+                if (count < 0) break
+                total += count
+                check(total <= MAX_INDEX_UNCOMPRESSED_BYTES) { "Local document index exceeds the decompression safety limit" }
+                output.write(buffer, 0, count)
+            }
+            output.toByteArray()
+        }
+        val payload = String(payloadBytes, Charsets.UTF_8)
         val array = JSONObject(payload).optJSONArray("documents") ?: return emptyList()
         (0 until array.length()).mapNotNull { i ->
             val item = array.optJSONObject(i) ?: return@mapNotNull null
