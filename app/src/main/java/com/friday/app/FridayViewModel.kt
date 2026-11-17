@@ -555,7 +555,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                 val speechQueue = if (_state.value.speakReplies && _state.value.voiceModelReady) Channel<String>(Channel.UNLIMITED) else null
                 if (speechQueue != null) {
                     activeVoiceJob?.cancel()
-                    activeVoiceJob = scope.launch {
+                    activeVoiceJob = voiceScope.launch {
                         var startedSpeaking = false
                         for (sentence in speechQueue) {
                             if (!startedSpeaking) {
@@ -572,7 +572,7 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
                     val channel = speechQueue ?: return
                     while (speechBuffer.isNotEmpty()) {
                         val text = speechBuffer.toString()
-                        val punctuation = Regex("[.!?。！？\\n]").find(text)
+                        val punctuation = Regex("[.!?。！？;；\\n]").find(text)
                         val cut = when {
                             punctuation != null -> punctuation.range.last + 1
                             text.length > 150 -> text.lastIndexOf(' ', 150).takeIf { it > 80 } ?: 150
