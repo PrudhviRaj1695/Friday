@@ -84,8 +84,8 @@ class MainActivity : ComponentActivity() {
     private val fridayViewModel: FridayViewModel by viewModels()
     override fun onDestroy() {
         if (activeViewModel === fridayViewModel) activeViewModel = null
-        // Move the AI runtime into the service before the UI ViewModel is cleared.
-        // This keeps wake-word commands working after the user exits the chat screen.
+        // Ask the running foreground service to create a service-owned AI runtime
+        // before the activity-owned ViewModel is cleared.
         if (!isChangingConfigurations && FridayAssistantService.isRunning) {
             runCatching {
                 startService(
@@ -641,7 +641,7 @@ Last error: ${state.error ?: "none"}
                     Text("VOICE INPUT • ON-DEVICE FIRST", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("BACKGROUND WAKE WORD • SAY “FRIDAY” WITHOUT OPENING THE APP", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
                     Text("Enable the microphone control once. FRIDAY then runs a local wake-word foreground service with a persistent notification, even after you leave the app. Stop it from the notification or the same control.", color = Muted, fontSize = 10.sp)
-                    Text("Android requires you to start microphone access while FRIDAY is visible. It cannot silently restart after a phone reboot or force-stop. Continuous listening uses battery; the notification stays visible while active.", color = Muted, fontSize = 10.sp)
+                    Text("Enable this once while FRIDAY is open. After the persistent notification says Listening, you do not need to touch the mic again: say “Friday”, pause briefly, then ask. It continues with the screen locked. Android blocks microphone auto-start after reboot or force-stop, so enable it again after those events. Continuous listening uses battery.", color = Muted, fontSize = 10.sp)
                     Text(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available. FRIDAY uses it for private offline command transcription." else "Offline speech recognition is unavailable. Install an offline language pack / speech service before enabling the background assistant.",
                         color = Muted, fontSize = 10.sp
