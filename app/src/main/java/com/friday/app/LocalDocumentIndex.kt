@@ -152,7 +152,7 @@ object LocalDocumentIndex {
                 if (mime == DocumentsContract.Document.MIME_TYPE_DIR) walkTree(context, tree, uri, out, depth + 1, onFile)
                 else if (isSupported(name)) {
                     var succeeded = false
-                    val extracted = if (size in 1..MAX_TEXT_BYTES) runCatching { context.contentResolver.openInputStream(uri)?.use { extract(context, name, it) }.orEmpty() }.onSuccess { succeeded = it.isNotBlank() }.getOrDefault("") else ""
+                    val extracted = if (size == 0L || size in 1..MAX_TEXT_BYTES) runCatching { context.contentResolver.openInputStream(uri)?.use { extract(context, name, it) }.orEmpty() }.onSuccess { succeeded = it.isNotBlank() }.getOrDefault("") else ""
                     out += LocalDocument(name, uri.toString(), mime, size, extracted.take(MAX_EXTRACTED_CHARS))
                     onFile(name, succeeded)
                 }
