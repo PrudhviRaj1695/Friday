@@ -164,7 +164,7 @@ object LocalDocumentRetriever {
      */
     private fun chunksFor(doc: LocalDocument, page: Int?, text: String): List<Chunk> {
         val clean = text.replace(Regex("[\\t ]+"), " ")
-            .replace(Regex("\\n{3,}"), "\\n\\n").trim()
+            .replace(Regex("\\n{3,}"), "\n\n").trim()
         if (clean.isBlank()) return emptyList()
         val result = mutableListOf<Chunk>()
         val size = 1_100
