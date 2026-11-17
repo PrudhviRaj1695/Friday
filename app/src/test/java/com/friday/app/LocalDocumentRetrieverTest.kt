@@ -68,4 +68,44 @@ class LocalDocumentRetrieverTest {
         assertTrue(result.isNotEmpty())
         assertTrue(result.first().text.contains("పేరు"))
     }
+    @Test
+    fun retrievesEnglishDocumentWhenQuestionIsInTelugu() {
+        val documents = listOf(
+            doc("salary-letter.pdf", "[PAGE 1] Employee name Ravi. Monthly salary is INR 150000.")
+        )
+
+        val result = LocalDocumentRetriever.retrieve("జీతం ఎంత?", documents)
+
+        assertTrue(result.isNotEmpty())
+        assertTrue(result.first().text.contains("salary", ignoreCase = true))
+    }
+
+    @Test
+    fun retrievesRelevantPassageAfterMultipleChunks() {
+        val filler = ("General terms and conditions apply to this document. ").repeat(35)
+        val documents = listOf(
+            doc("long-policy.pdf", "[PAGE 1] $filler Waiting period coverage for pre-existing conditions begins after thirty-six months.")
+        )
+
+        val result = LocalDocumentRetriever.retrieve(
+            "When does pre-existing condition coverage begin?",
+            documents
+        )
+
+        assertTrue(result.isNotEmpty())
+        assertTrue(result.any { it.text.contains("thirty-six months") })
+    }
+
+    @Test
+    fun doesNotTreatDocumentInventoryAsEveryQuestionAboutPdf() {
+        val documents = listOf(
+            doc("policy.pdf", "[PAGE 1] The deductible is INR 5000.")
+        )
+
+        val result = LocalDocumentRetriever.retrieve("What does my PDF say about the deductible?", documents)
+
+        assertTrue(result.isNotEmpty())
+        assertTrue(result.first().text.contains("deductible"))
+    }
+
 }
