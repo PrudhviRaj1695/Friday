@@ -50,7 +50,7 @@ object LocalDocumentIndex {
                 if (doc.content.isBlank()) continue
                 val remaining = MAX_INDEX_TEXT_CHARS - chars
                 if (remaining <= 0) break
-                val content = doc.content.take(minOf(100_000, remaining))
+                val content = doc.content.take(remaining)
                 array.put(JSONObject()
                     .put("name", doc.name)
                     .put("location", doc.location)
