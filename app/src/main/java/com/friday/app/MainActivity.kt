@@ -600,6 +600,9 @@ Last error: ${state.error ?: "none"}
                     Text("Models stay on this phone in app-private storage. Download only one at a time; larger models need more free storage and RAM.", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("VOICE INPUT • ON-DEVICE FIRST", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("BACKGROUND WAKE WORD • SAY “FRIDAY” WITHOUT OPENING THE APP", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("Enable the microphone control once. FRIDAY then runs a local wake-word foreground service with a persistent notification, even after you leave the app. Stop it from the notification or the same control.", color = Muted, fontSize = 10.sp)
+                    Text("Android requires you to start microphone access while FRIDAY is visible. It cannot silently restart after a phone reboot or force-stop. Continuous listening uses battery; the notification stays visible while active.", color = Muted, fontSize = 10.sp)
                     Text(
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available on this phone. FRIDAY selects it before the system recognizer." else "On-device speech recognition is not exposed by the installed speech service. Android may use its configured recognition provider.",
                         color = Muted, fontSize = 10.sp
