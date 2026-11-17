@@ -87,6 +87,7 @@ class FridayAssistantService : Service() {
 
     private suspend fun prepare() {
         try {
+            if (MainActivity.activeViewModel == null && assistant == null) assistant = FridayViewModel(application)
             status("Installing offline wake-word model (one time)…")
             val dir = withContext(Dispatchers.IO) { ensureModel() }
             spotter = KeywordSpotter(config = KeywordSpotterConfig(
@@ -217,6 +218,10 @@ class FridayAssistantService : Service() {
                     status(if (text.isBlank()) "Didn't catch that • say “Friday” again" else "Local AI model is not ready")
                     commandInProgress = false; restartWakeLoop(); return
                 }
+                if (vm.state.value.busy) {
+                    status("FRIDAY is finishing another request • say Friday again shortly")
+                    commandInProgress = false; restartWakeLoop(); return
+                }
                 status("FRIDAY is thinking • local AI"); vm.send(text)
                 scope.launch {
                     var sawBusy = false
@@ -245,7 +250,14 @@ class FridayAssistantService : Service() {
     private fun restartWakeLoop() {
         if (active.get()) scope.launch { delay(700); runCatching { startWakeLoop() }.onFailure { status("Wake-word microphone error: ${it.message}") } }
     }
-    override fun onTaskRemoved(rootIntent: Intent?) { super.onTaskRemoved(rootIntent) }
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (MainActivity.activeViewModel == null && assistant == null) {
+            // The activity's ViewModel is cleared when its task is dismissed.
+            // Warm a service-owned runtime now so the next wake word can be answered.
+            assistant = FridayViewModel(application)
+        }
+        super.onTaskRemoved(rootIntent)
+    }
     override fun onDestroy() {
         active.set(false); recording = false; stopWakeLoop(); releaseSpeech()
         runCatching { worker?.join(1000) }; worker = null
