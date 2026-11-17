@@ -29,6 +29,7 @@ class FridayAssistantService : Service() {
     companion object {
         const val ACTION_START = "com.friday.app.START_BACKGROUND_ASSISTANT"
         const val ACTION_STOP = "com.friday.app.STOP_BACKGROUND_ASSISTANT"
+        const val ACTION_ENSURE_RUNTIME = "com.friday.app.ENSURE_BACKGROUND_RUNTIME"
         @Volatile var isRunning: Boolean = false
         private const val CHANNEL = "friday_always_on"
         private const val NOTIFICATION_ID = 7400
@@ -59,6 +60,13 @@ class FridayAssistantService : Service() {
         if (intent?.action == ACTION_STOP) {
             getSharedPreferences("friday_settings", MODE_PRIVATE).edit().putBoolean("background_assistant_enabled", false).apply()
             stopSelf(); return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_ENSURE_RUNTIME) {
+            if (active.get() && MainActivity.activeViewModel == null && assistant == null) {
+                assistant = FridayViewModel(application)
+                status("Background AI runtime is loading • wake word remains active")
+            }
+            return START_STICKY
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             stopSelf(); return START_NOT_STICKY
@@ -239,7 +247,12 @@ class FridayAssistantService : Service() {
             override fun onResults(results: android.os.Bundle?) {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
                 releaseSpeech()
-                val vm = MainActivity.activeViewModel ?: assistant ?: FridayViewModel(application).also { assistant = it }
+                val activityVm = MainActivity.activeViewModel
+                if (activityVm != null && assistant != null && assistant !== activityVm) {
+                    assistant?.shutdownForService()
+                    assistant = null
+                }
+                val vm = activityVm ?: assistant ?: FridayViewModel(application).also { assistant = it }
                 if (text.isBlank()) {
                     status("Didn't catch that • say “Friday” again")
                     commandInProgress = false; restartWakeLoop(); return
@@ -295,10 +308,10 @@ class FridayAssistantService : Service() {
         if (active.get()) scope.launch { delay(700); runCatching { startWakeLoop() }.onFailure { status("Wake-word microphone error: ${it.message}") } }
     }
     override fun onTaskRemoved(rootIntent: Intent?) {
+        // A swipe from Recents removes the UI task, not the opted-in foreground service.
         if (MainActivity.activeViewModel == null && assistant == null) {
-            // The activity's ViewModel is cleared when its task is dismissed.
-            // Warm a service-owned runtime now so the next wake word can be answered.
             assistant = FridayViewModel(application)
+            status("FRIDAY remains active in the background • say “Friday”")
         }
         super.onTaskRemoved(rootIntent)
     }
