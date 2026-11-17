@@ -214,10 +214,26 @@ class FridayAssistantService : Service() {
                 val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim().orEmpty()
                 releaseSpeech()
                 val vm = MainActivity.activeViewModel ?: assistant ?: FridayViewModel(application).also { assistant = it }
-                if (text.isBlank() || !vm.state.value.modelReady) {
-                    status(if (text.isBlank()) "Didn't catch that • say “Friday” again" else "Local AI model is not ready")
+                if (text.isBlank()) {
+                    status("Didn't catch that • say “Friday” again")
                     commandInProgress = false; restartWakeLoop(); return
                 }
+                if (!vm.state.value.modelReady) {
+                    status("Loading your local AI model…")
+                    val ready = withTimeoutOrNull(90_000) {
+                        vm.state.first { it.modelReady || it.error != null }.modelReady
+                    } ?: false
+                    if (!ready) {
+                        status("Local AI model is not ready. Open FRIDAY and finish model setup.")
+                        commandInProgress = false; restartWakeLoop(); return
+                    }
+                }
+                if (vm.state.value.voiceModelReady && !vm.state.value.voiceStatus.contains("ready", ignoreCase = true)) {
+                    withTimeoutOrNull(20_000) {
+                        vm.state.first { it.voiceStatus.contains("ready", ignoreCase = true) || !it.voiceModelReady }
+                    }
+                }
+                if (!vm.state.value.voiceModelReady) status("FRIDAY voice model is not installed • install Kokoro in setup")
                 if (vm.state.value.busy) {
                     status("FRIDAY is finishing another request • say Friday again shortly")
                     commandInProgress = false; restartWakeLoop(); return
@@ -225,7 +241,9 @@ class FridayAssistantService : Service() {
                 status("FRIDAY is thinking • local AI"); vm.send(text)
                 scope.launch {
                     var sawBusy = false
-                    vm.state.first { s -> if (s.busy) sawBusy = true; sawBusy && !s.busy && !s.voicePlaying }
+                    withTimeoutOrNull(180_000) {
+                        vm.state.first { s -> if (s.busy) sawBusy = true; sawBusy && !s.busy && !s.voicePlaying }
+                    }
                     delay(700); commandInProgress = false
                     if (active.get()) startWakeLoop()
                 }
