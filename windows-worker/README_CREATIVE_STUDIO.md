@@ -60,6 +60,29 @@ Example request body:
 
 Policy modes adjust prompt-level tone and behavior. They are not a hard moderation firewall and do not change model weights. The Android LiteRT-LM path currently exposes prompt-guided creativity/personality controls; native token sampling controls are not claimed for that runtime. Android response profiles and behavior preferences are saved locally on the device.
 
+## Workstation profile: RTX 3060 8 GB / 16 GB system RAM
+
+Start with a conservative image pipeline:
+
+- Base model: a Stable Diffusion 1.5 checkpoint (for example, the official SD 1.5 pruned EMA-only checkpoint).
+- Initial graph: 512×512, batch 1, FP16 where supported, moderate step count, tiled/upscale only as a separate second pass.
+- Keep only one large model loaded. Close games and GPU-heavy applications before generation.
+- SDXL is a later experiment, not the default: use low-VRAM/offload settings and smaller resolutions, and expect slower generation or occasional out-of-memory failures.
+- Avoid FLUX.1-dev, Wan 14B, HunyuanVideo and other large video/flow models on this 8 GB card.
+
+Video decision:
+
+- Do not make a large text-to-video model the first milestone.
+- After image generation is stable, test SD 1.5 + AnimateDiff with a short 8-frame 512×512 workflow, batch 1 and memory-saving attention/offload settings. Even this is experimental on 8 GB VRAM and 16 GB RAM; reduce frames/resolution if it runs out of memory.
+- AnimateDiff's own reference measurements vary significantly with optimization; one published 16-frame SD 1.5 example reports roughly 4.2–5.6 GB under optimized attention, while unoptimized runs exceed 12 GB. This is not a guarantee for an RTX 3060.
+- Treat SVD XT as a later experiment: common workflow references place it around 12 GB minimum, above this GPU's VRAM.
+
+Offline deployment:
+
+- No cloud inference or remote provider is configured or required.
+- For a fully air-gapped workstation, download the ComfyUI installer/source, Python wheels, checkpoints, VAE, motion modules and custom-node dependencies on a separate trusted machine, verify hashes/licenses, then transfer them by local media. A one-time internet download is still internet access; it is not required if you provision the files offline.
+- The phone-to-PC worker transport is not yet paired. Do not expose the worker over an untrusted network; LAN pairing needs authenticated transport and should be completed before remote phone control.
+
 ## ComfyUI workflows
 
 Export workflows from ComfyUI in **API format** and place the JSON files in `FRIDAY_WORKFLOWS_DIR` (default `./workflows`). Give each workflow a stable filename such as `flux_schnell` or `wan_t2v`.
