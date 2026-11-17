@@ -155,9 +155,29 @@ object LocalDocumentRetriever {
         return result
     }
 
-    private fun normalize(text: String): String =
-        text.lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+    // Indic scripts use combining vowel signs (Unicode marks) inside words.
+    // Treating only letters/digits as token characters splits Telugu words into unusable fragments.
+    private fun isTokenCharacter(ch: Char): Boolean {
+        val type = Character.getType(ch)
+        return ch.isLetterOrDigit() ||
+            type == Character.NON_SPACING_MARK.toInt() ||
+            type == Character.COMBINING_SPACING_MARK.toInt() ||
+            type == Character.ENCLOSING_MARK.toInt()
+    }
+
+    private fun normalize(text: String): String = buildString {
+        var previousWasSpace = true
+        text.lowercase(Locale.ROOT).forEach { ch ->
+            if (isTokenCharacter(ch)) {
+                append(ch)
+                previousWasSpace = false
+            } else if (!previousWasSpace) {
+                append(' ')
+                previousWasSpace = true
+            }
+        }
+    }.trim()
 
     private fun tokens(text: String): List<String> =
-        text.lowercase(Locale.ROOT).split(Regex("[^\\p{L}\\p{N}]+")).filter { it.length >= 2 }
+        normalize(text).split(' ').filter { it.length >= 2 }
 }
