@@ -200,7 +200,7 @@ fun FridayApp(vm: FridayViewModel) {
                     return
                 }
                 val normalized = spoken.lowercase(Locale.ROOT)
-                val stopPhrase = normalized in setOf("stop listening", "friday stop", "cancel listening", "go to sleep")
+                val stopPhrase = normalized in setOf("stop listening", "friday stop", "cancel listening", "go to sleep", "ఫ్రైడే ఆపు") || Regex("^(?:hey\\s+)?(?:friday|ఫ్రైడే)[,\\s]+(?:stop listening|cancel listening|go to sleep)$").matches(normalized)
                 if (stopPhrase) {
                     handsFreeEnabled = false
                     awaitingWakeCommand = false
@@ -219,7 +219,7 @@ fun FridayApp(vm: FridayViewModel) {
                     }
                     return
                 }
-                val wake = Regex("\\bfriday\\b", RegexOption.IGNORE_CASE).find(spoken)
+                val wake = Regex("\\bfriday\\b|ఫ్రైడే", RegexOption.IGNORE_CASE).find(spoken)
                 if (wake != null) {
                     val command = spoken.substring(wake.range.last + 1).trim().trimStart(',', '.', '!', ':')
                     if (command.isBlank()) {
