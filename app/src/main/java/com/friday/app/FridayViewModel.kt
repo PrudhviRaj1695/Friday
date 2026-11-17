@@ -503,10 +503,20 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private fun documentContextFor(query: String): String {
-        val docs = _state.value.localDocuments
-        if (docs.none { it.content.isNotBlank() }) return ""
+        val docs = _state.value.localDocuments.filter { it.content.isNotBlank() }
+        if (docs.isEmpty()) return ""
         val results = LocalDocumentRetriever.retrieve(query, docs, limit = 5)
-        return LocalDocumentRetriever.formatContext(results, maxChars = 10_000)
+        if (results.isNotEmpty()) return LocalDocumentRetriever.formatContext(results, maxChars = 10_000)
+
+        // Make a failed retrieval explicit for document-grounded questions. Without this,
+        // the LLM may confidently answer from pretraining while implying it read the file.
+        val asksAboutDocuments = Regex(
+            "\\b(document|file|pdf|scan|scanned|uploaded|attachment|according to|in my|from my|inside|policy|invoice|receipt|contract|agreement|report|letter|form)\\b|పత్రం|డాక్యుమెంట్",
+            RegexOption.IGNORE_CASE
+        ).containsMatchIn(query)
+        return if (asksAboutDocuments) {
+            "DOCUMENT RETRIEVAL STATUS: No matching passages were found in the locally indexed documents for this question. Do not guess or answer as if the files were read. Ask the user to rescan the correct folder or provide a more specific search phrase."
+        } else ""
     }
     fun send(text: String) {
         val clean = text.trim()
