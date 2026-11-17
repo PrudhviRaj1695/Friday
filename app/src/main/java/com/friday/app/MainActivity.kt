@@ -106,7 +106,6 @@ fun FridayApp(vm: FridayViewModel) {
     var personalityNameDraft by remember { mutableStateOf("Custom") }
     var personalityPromptDraft by remember { mutableStateOf("") }
     var behaviorDraft by remember { mutableStateOf(state.additionalBehaviorInstructions) }
-    var savedProfileMenuOpen by remember { mutableStateOf(false) }
     var allFilesGranted by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     var selectedFolderLabel by remember { mutableStateOf(context.getSharedPreferences("friday_storage", 0).getString("tree_uri", null)?.let { "A folder is linked" } ?: "No folder selected") }
     val lifecycleOwner = LocalLifecycleOwner.current
