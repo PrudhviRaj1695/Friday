@@ -42,6 +42,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.MicOff
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -73,7 +80,23 @@ private val Violet = Color(0xFF6853C7)
 private val PinkGlow = Color(0xFFDAA9FF)
 
 class MainActivity : ComponentActivity() {
+    companion object { @Volatile var activeViewModel: FridayViewModel? = null }
     private val fridayViewModel: FridayViewModel by viewModels()
+    override fun onDestroy() {
+        if (activeViewModel === fridayViewModel) activeViewModel = null
+        // Ask the running foreground service to create a service-owned AI runtime
+        // before the activity-owned ViewModel is cleared.
+        if (!isChangingConfigurations && FridayAssistantService.isRunning) {
+            runCatching {
+                startService(
+                    Intent(this, FridayAssistantService::class.java)
+                        .setAction(FridayAssistantService.ACTION_ENSURE_RUNTIME)
+                )
+            }
+        }
+        super.onDestroy()
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 7401 && resultCode == android.app.Activity.RESULT_OK) {
@@ -83,6 +106,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        activeViewModel = fridayViewModel
         window.statusBarColor = android.graphics.Color.rgb(5, 2, 8)
         window.navigationBarColor = android.graphics.Color.rgb(5, 2, 8)
         setContent { FridayApp(fridayViewModel) }
@@ -99,12 +123,12 @@ fun FridayApp(vm: FridayViewModel) {
     var textOpen by remember { mutableStateOf(false) }
     var debugOpen by remember { mutableStateOf(false) }
     var input by remember { mutableStateOf("") }
-    var voiceStatus by remember { mutableStateOf("") }
     var googleActionError by remember { mutableStateOf<String?>(null) }
     var clearMemoryConfirm by remember { mutableStateOf(false) }
     var modelMenuOpen by remember { mutableStateOf(false) }
     var personalityNameDraft by remember { mutableStateOf("Custom") }
     var personalityPromptDraft by remember { mutableStateOf("") }
+    var behaviorDraft by remember { mutableStateOf(state.additionalBehaviorInstructions) }
     var allFilesGranted by remember { mutableStateOf(Environment.isExternalStorageManager()) }
     var selectedFolderLabel by remember { mutableStateOf(context.getSharedPreferences("friday_storage", 0).getString("tree_uri", null)?.let { "A folder is linked" } ?: "No folder selected") }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -139,63 +163,51 @@ fun FridayApp(vm: FridayViewModel) {
             }
         }
     }
-    val speechRecognizer = remember {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else if (SpeechRecognizer.isRecognitionAvailable(context)) {
-            SpeechRecognizer.createSpeechRecognizer(context)
-        } else null
+    var handsFreeEnabled by remember {
+        mutableStateOf(FridayAssistantService.isRunning)
     }
-
-    DisposableEffect(speechRecognizer) {
-        speechRecognizer?.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { voiceStatus = "LISTENING" }
-            override fun onBeginningOfSpeech() { voiceStatus = "HEARING YOU" }
-            override fun onRmsChanged(rmsdB: Float) = Unit
-            override fun onBufferReceived(buffer: ByteArray?) = Unit
-            override fun onEndOfSpeech() { voiceStatus = "PROCESSING…" }
-            override fun onError(error: Int) {
-                voiceStatus = when (error) {
-                    SpeechRecognizer.ERROR_AUDIO -> "MICROPHONE AUDIO ERROR"
-                    SpeechRecognizer.ERROR_CLIENT -> "SPEECH SERVICE CLIENT ERROR"
-                    SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "MICROPHONE PERMISSION DENIED"
-                    SpeechRecognizer.ERROR_NETWORK, SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "SPEECH SERVICE NETWORK ERROR"
-                    SpeechRecognizer.ERROR_NO_MATCH -> "NO SPEECH RECOGNIZED • TRY AGAIN"
-                    SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "SPEECH SERVICE BUSY"
-                    SpeechRecognizer.ERROR_SERVER -> "SPEECH SERVICE SERVER ERROR"
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "NO SPEECH DETECTED"
-                    else -> "SPEECH ERROR • $error"
-                }
+    var voiceStatus by remember { mutableStateOf(if (handsFreeEnabled) "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY" else "") }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                handsFreeEnabled = FridayAssistantService.isRunning
+                voiceStatus = if (handsFreeEnabled) "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY" else if (voiceStatus.contains("BACKGROUND ASSISTANT")) "BACKGROUND ASSISTANT OFF" else voiceStatus
             }
-            override fun onResults(results: Bundle?) {
-                val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!spoken.isNullOrBlank()) {
-                    if (state.modelReady) vm.send(spoken) else voiceStatus = "LOCAL MODEL IS NOT READY"
-                    if (state.modelReady) voiceStatus = ""
-                } else voiceStatus = "NO SPEECH RECOGNIZED • TAP MIC AND TRY AGAIN"
-            }
-            override fun onPartialResults(partialResults: Bundle?) {
-                val partial = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!partial.isNullOrBlank()) voiceStatus = "HEARING • $partial"
-            }
-            override fun onEvent(eventType: Int, params: Bundle?) = Unit
-        })
-        onDispose { speechRecognizer?.destroy() }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
-
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted && speechRecognizer != null) {
-            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault())
-                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-                putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
-            }
-            speechRecognizer.startListening(intent)
-        } else voiceStatus = if (speechRecognizer == null) "SPEECH SERVICE UNAVAILABLE" else "MICROPHONE PERMISSION DENIED"
+        if (granted) {
+            val serviceIntent = Intent(context, FridayAssistantService::class.java).setAction(FridayAssistantService.ACTION_START)
+            runCatching {
+                androidx.core.content.ContextCompat.startForegroundService(context, serviceIntent)
+                handsFreeEnabled = true
+                voiceStatus = "BACKGROUND ASSISTANT STARTING • SAY FRIDAY"
+            }.onFailure { voiceStatus = "BACKGROUND ASSISTANT FAILED • ${it.message ?: "try again"}" }
+        } else {
+            voiceStatus = "MICROPHONE PERMISSION DENIED"
+        }
     }
-
+    // If Android killed the process (rather than the user stopping the assistant),
+    // restore the opted-in service while this launcher activity is visible.
+    LaunchedEffect(Unit) {
+        val preferences = context.getSharedPreferences("friday_settings", Context.MODE_PRIVATE)
+        val optedIn = preferences.getBoolean("background_assistant_enabled", false)
+        val micGranted = androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        if (optedIn && micGranted && !FridayAssistantService.isRunning) {
+            runCatching {
+                androidx.core.content.ContextCompat.startForegroundService(
+                    context,
+                    Intent(context, FridayAssistantService::class.java).setAction(FridayAssistantService.ACTION_START)
+                )
+                handsFreeEnabled = true
+                voiceStatus = "RESTORING BACKGROUND ASSISTANT • SAY FRIDAY"
+            }.onFailure {
+                voiceStatus = "BACKGROUND ASSISTANT COULD NOT RESTART • ${it.message ?: "open settings"}"
+            }
+        }
+    }
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) FridayNotifications.show(context, "FRIDAY notifications enabled", "You'll receive local task completion and model status updates.", 700)
     }
@@ -311,7 +323,7 @@ Last error: ${state.error ?: "none"}
                     Text("YOUR PRIVATE AI COMPANION", color = Neon, fontSize = 8.sp, letterSpacing = 1.5.sp)
                 }
                 Spacer(Modifier.width(12.dp))
-                Text("⋮", color = Color.White, fontSize = 24.sp, modifier = Modifier.clickable { setupOpen = true }.padding(horizontal = 4.dp))
+                IconButton(onClick = { setupOpen = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Open settings", tint = Color.White) }
             }
 
             Box(Modifier.fillMaxWidth().height(188.dp), contentAlignment = Alignment.Center) {
@@ -368,9 +380,15 @@ Last error: ${state.error ?: "none"}
                     } else {
                         (context as? android.app.Activity)?.requestPermissions(arrayOf(Manifest.permission.CAMERA), 7402)
                     }
-                }, enabled = !state.busy) { Text("📷", fontSize = 21.sp) }
-                IconButton(onClick = { micPermission.launch(Manifest.permission.RECORD_AUDIO) }, enabled = !state.busy) {
-                    Text("🎙", fontSize = 22.sp)
+                }, enabled = !state.busy) { Icon(Icons.Outlined.PhotoCamera, contentDescription = "Open camera", tint = Muted) }
+                IconButton(onClick = {
+                    if (handsFreeEnabled) {
+                        context.startService(Intent(context, FridayAssistantService::class.java).setAction(FridayAssistantService.ACTION_STOP))
+                        handsFreeEnabled = false
+                        voiceStatus = "BACKGROUND ASSISTANT OFF"
+                    } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                }) {
+                    Icon(if (handsFreeEnabled) Icons.Outlined.MicOff else Icons.Outlined.Mic, contentDescription = if (handsFreeEnabled) "Stop hands-free listening" else "Start hands-free listening", tint = if (handsFreeEnabled) Color(0xFFFF8A9B) else Neon)
                 }
                 OutlinedTextField(
                     value = input,
@@ -406,7 +424,7 @@ Last error: ${state.error ?: "none"}
                         colors = ButtonDefaults.buttonColors(containerColor = Violet, disabledContainerColor = Color(0xFF39213F)),
                         shape = RoundedCornerShape(24.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-                    ) { Text("SEND", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                    ) { Icon(Icons.Outlined.Send, contentDescription = "Send message", tint = Color.White) }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
@@ -417,7 +435,7 @@ Last error: ${state.error ?: "none"}
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB52D86)),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF8BD6))
                 ) {
-                    Text("■  STOP VOICE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.StopCircle, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text("STOP VOICE", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -529,6 +547,42 @@ Last error: ${state.error ?: "none"}
                     OutlinedTextField(value = personalityNameDraft, onValueChange = { personalityNameDraft = it }, label = { Text("Custom profile name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     OutlinedTextField(value = personalityPromptDraft, onValueChange = { personalityPromptDraft = it }, label = { Text("Custom response instructions") }, minLines = 3, modifier = Modifier.fillMaxWidth())
                     Button(onClick = { vm.setPersonality(personalityNameDraft.ifBlank { "Custom" }, personalityPromptDraft) }, colors = ButtonDefaults.buttonColors(containerColor = Neon)) { Text("Save and activate personality", color = Night) }
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Text("SAVED RESPONSE PROFILES", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp, modifier = Modifier.weight(1f))
+                        Text("${state.responseProfiles.size}/20", color = Muted, fontSize = 10.sp)
+                    }
+                    if (state.responseProfiles.isEmpty()) {
+                        Text("Save your custom prompt above to create reusable profiles.", color = Muted, fontSize = 10.sp)
+                    } else {
+                        state.responseProfiles.forEach { saved ->
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(saved.name, color = Color.White, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                                TextButton(onClick = { vm.activateResponseProfile(saved); personalityNameDraft = saved.name; personalityPromptDraft = saved.prompt }) { Text("ACTIVATE", color = Neon, fontSize = 10.sp) }
+                                TextButton(onClick = { vm.deleteResponseProfile(saved.name) }) { Text("✕", color = Color(0xFFFF9CA9), fontSize = 10.sp) }
+                            }
+                        }
+                    }
+                    OutlinedButton(onClick = { vm.saveResponseProfile(personalityNameDraft, personalityPromptDraft) }, enabled = personalityNameDraft.isNotBlank() && personalityPromptDraft.isNotBlank()) {
+                        Text("Save current prompt as reusable profile", color = Neon)
+                    }
+                    HorizontalDivider(color = Color(0xFF30334A))
+                    Text("CONTENT & POLICY PREFERENCES", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Mature everyday language", color = Color.White, fontSize = 12.sp)
+                            Text("Allows ordinary adult vocabulary and less sanitised fictional dialogue. It does not disable core safety boundaries.", color = Muted, fontSize = 10.sp)
+                        }
+                        Switch(checked = state.matureLanguageEnabled, onCheckedChange = vm::setMatureLanguageEnabled)
+                    }
+                    OutlinedTextField(
+                        value = behaviorDraft,
+                        onValueChange = { behaviorDraft = it },
+                        label = { Text("Additional response / topic preferences") },
+                        placeholder = { Text("Example: Be direct, allow harmless technical experiments, avoid unnecessary refusals, explain restrictions briefly…") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedButton(onClick = { vm.setAdditionalBehaviorInstructions(behaviorDraft) }) { Text("Save behavior preferences", color = Neon) }
                     Text("CREATIVITY • PROMPT-GUIDED", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("Creativity: ${"%.1f".format(state.creativity)}  •  This guides response style; it is not native token-sampling temperature.", color = Muted, fontSize = 10.sp)
                     Slider(value = state.creativity, onValueChange = vm::setCreativity, valueRange = 0f..2f)
@@ -585,10 +639,15 @@ Last error: ${state.error ?: "none"}
                     Text("Models stay on this phone in app-private storage. Download only one at a time; larger models need more free storage and RAM.", color = Muted, fontSize = 10.sp)
                     HorizontalDivider(color = Color(0xFF1C354A))
                     Text("VOICE INPUT • ON-DEVICE FIRST", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
+                    Text("BACKGROUND WAKE WORD • SAY “FRIDAY” WITHOUT OPENING THE APP", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("Enable the microphone control once. FRIDAY then runs a local wake-word foreground service with a persistent notification, even after you leave the app. Stop it from the notification or the same control.", color = Muted, fontSize = 10.sp)
+                    Text("Enable this once while FRIDAY is open. After the persistent notification says Listening, you do not need to touch the mic again: say “Friday”, pause briefly, then ask. It continues with the screen locked. Android blocks microphone auto-start after reboot or force-stop. Open FRIDAY once after those events; it will restore your previous opt-in. Continuous listening uses battery.", color = Muted, fontSize = 10.sp)
                     Text(
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available on this phone. FRIDAY selects it before the system recognizer." else "On-device speech recognition is not exposed by the installed speech service. Android may use its configured recognition provider.",
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) "On-device speech recognition is available. FRIDAY uses it for private offline command transcription." else "Offline speech recognition is unavailable. Install an offline language pack / speech service before enabling the background assistant.",
                         color = Muted, fontSize = 10.sp
                     )
+                    Text("SAMSUNG BATTERY SETTINGS", color = Neon, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text("For reliable screen-off listening, set Settings → Apps → FRIDAY → Battery → Unrestricted, and add FRIDAY to Never auto sleeping apps if One UI places it in a sleeping list.", color = Muted, fontSize = 10.sp)
                     Text("VOICE OUTPUT • KOKORO NEURAL TTS", color = Neon, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
                     Text("Kokoro-82M • Sherpa-ONNX • on-device CPU inference • no cloud voice requests", color = Muted, fontSize = 10.sp)
                     Text(state.voiceStatus, color = Muted, fontSize = 12.sp)

@@ -5,6 +5,14 @@ on:
   push:
     paths:
       - 'app/**'
+      - 'tools/**'
+      - '*.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/android-apk.yml'
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'tools/**'
       - '*.gradle.kts'
       - 'gradle.properties'
       - '.github/workflows/android-apk.yml'
@@ -34,6 +42,11 @@ jobs:
       - name: Install Android platform and build tools
         run: sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
 
+      - name: Set up Python for wake-word token generation
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
@@ -45,8 +58,25 @@ jobs:
           curl -L --fail --retry 3 "https://github.com/k2-fsa/sherpa-onnx/releases/download/v2.0.1/sherpa-onnx-2.0.1.aar" -o app/libs/sherpa-onnx-2.0.1.aar
           echo "Sherpa ONNX AAR: $(du -h app/libs/sherpa-onnx-2.0.1.aar)"
 
+      - name: Generate exact FRIDAY wake-word BPE tokens
+        run: |
+          python -m pip install --disable-pip-version-check sentencepiece==0.2.1
+          python -m py_compile tools/generate_wakeword_keywords.py
+          mkdir -p /tmp/friday-kws
+          curl -L --fail --retry 3 "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2" -o /tmp/friday-kws/model.tar.bz2
+          tar -xjf /tmp/friday-kws/model.tar.bz2 -C /tmp/friday-kws
+          BPE_MODEL="$(find /tmp/friday-kws -name bpe.model -print -quit)"
+          test -n "$BPE_MODEL"
+          python tools/generate_wakeword_keywords.py "$BPE_MODEL" app/src/main/assets/friday_keywords.txt
+          test -s app/src/main/assets/friday_keywords.txt
+
+      - name: Run Android unit tests
+        run: gradle --no-daemon testDebugUnitTest
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
+      - name: Verify wake-word token asset is packaged
+        run: unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -F "assets/friday_keywords.txt"
+
       - name: Print APK signing SHA-1 for Google OAuth setup
         run: gradle --no-daemon :app:signingReport
 
@@ -58,3 +88,5 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+
+# Manual validation trigger: build the downloadable debug APK from this branch.
