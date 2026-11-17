@@ -39,6 +39,7 @@ class FridayAssistantService : Service() {
     }
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val active = AtomicBoolean(false)
+    private val restartPending = AtomicBoolean(false)
     @Volatile private var recording = false
     @Volatile private var audio: AudioRecord? = null
     @Volatile private var spotter: KeywordSpotter? = null
@@ -257,6 +258,16 @@ class FridayAssistantService : Service() {
                     status("Didn't catch that • say “Friday” again")
                     commandInProgress = false; restartWakeLoop(); return
                 }
+                val stopCommand = Regex(
+                    "\\b(stop listening|stop friday|friday stop|go to sleep|cancel listening|pause listening)\\b|ఫ్రైడే ఆపు|వినడం ఆపు",
+                    RegexOption.IGNORE_CASE
+                ).containsMatchIn(text)
+                if (stopCommand) {
+                    getSharedPreferences("friday_settings", MODE_PRIVATE).edit().putBoolean("background_assistant_enabled", false).apply()
+                    status("Background assistant stopped by voice command")
+                    stopSelf()
+                    return
+                }
                 if (!vm.state.value.modelReady) {
                     status("Loading your local AI model…")
                     val ready = withTimeoutOrNull(90_000) {
@@ -305,7 +316,19 @@ class FridayAssistantService : Service() {
         speech?.let { runCatching { it.cancel() }; runCatching { it.destroy() } }; speech = null
     }
     private fun restartWakeLoop() {
-        if (active.get()) scope.launch { delay(700); runCatching { startWakeLoop() }.onFailure { status("Wake-word microphone error: ${it.message}") } }
+        if (!active.get() || !restartPending.compareAndSet(false, true)) return
+        scope.launch {
+            delay(900)
+            restartPending.set(false)
+            if (!active.get()) return@launch
+            runCatching { startWakeLoop() }.onFailure { error ->
+                status("Wake-word microphone unavailable: ${error.message ?: error.javaClass.simpleName} • assistant stopped")
+                active.set(false)
+                isRunning = false
+                getSharedPreferences("friday_settings", MODE_PRIVATE).edit().putBoolean("background_assistant_enabled", false).apply()
+                stopSelf()
+            }
+        }
     }
     override fun onTaskRemoved(rootIntent: Intent?) {
         // A swipe from Recents removes the UI task, not the opted-in foreground service.
