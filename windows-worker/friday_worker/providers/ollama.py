@@ -30,7 +30,7 @@ class OllamaProvider:
 
     async def chat(self, messages: list[dict[str, str]], model: str, options: dict[str, Any]) -> dict[str, Any]:
         payload: dict[str, Any] = {"model": model, "messages": messages, "stream": False}
-        allowed = {"temperature", "top_p", "num_predict", "num_ctx", "seed"}
+        allowed = {"temperature", "top_p", "top_k", "repeat_penalty", "num_predict", "num_ctx", "seed"}
         selected = {key: value for key, value in options.items() if key in allowed and value is not None}
         if selected:
             payload["options"] = selected
