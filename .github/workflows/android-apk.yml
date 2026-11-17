@@ -49,6 +49,7 @@ jobs:
       - name: Generate exact FRIDAY wake-word BPE tokens
         run: |
           python -m pip install --disable-pip-version-check sentencepiece==0.2.1
+          python -m py_compile tools/generate_wakeword_keywords.py
           mkdir -p /tmp/friday-kws
           curl -L --fail --retry 3 "https://github.com/k2-fsa/sherpa-onnx/releases/download/kws-models/sherpa-onnx-kws-zipformer-gigaspeech-3.3M-2024-01-01.tar.bz2" -o /tmp/friday-kws/model.tar.bz2
           tar -xjf /tmp/friday-kws/model.tar.bz2 -C /tmp/friday-kws
@@ -61,6 +62,9 @@ jobs:
         run: gradle --no-daemon testDebugUnitTest
       - name: Build debug APK
         run: gradle --no-daemon assembleDebug
+      - name: Verify wake-word token asset is packaged
+        run: unzip -l app/build/outputs/apk/debug/app-debug.apk | grep -F "assets/friday_keywords.txt"
+
       - name: Print APK signing SHA-1 for Google OAuth setup
         run: gradle --no-daemon :app:signingReport
 
