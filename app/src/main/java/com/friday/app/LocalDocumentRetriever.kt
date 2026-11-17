@@ -173,7 +173,7 @@ object LocalDocumentRetriever {
         while (start < clean.length) {
             var end = (start + size).coerceAtMost(clean.length)
             if (end < clean.length) {
-                val paragraph = clean.lastIndexOf("\\n\\n", end)
+                val paragraph = clean.lastIndexOf("\n\n", end)
                 val sentence = clean.substring(start, end).let { part ->
                     maxOf(part.lastIndexOf(". "), part.lastIndexOf("? "), part.lastIndexOf("! "), part.lastIndexOf("; "))
                 } + start
