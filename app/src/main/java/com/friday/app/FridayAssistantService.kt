@@ -29,6 +29,7 @@ class FridayAssistantService : Service() {
     companion object {
         const val ACTION_START = "com.friday.app.START_BACKGROUND_ASSISTANT"
         const val ACTION_STOP = "com.friday.app.STOP_BACKGROUND_ASSISTANT"
+        @Volatile var isRunning: Boolean = false
         private const val CHANNEL = "friday_always_on"
         private const val NOTIFICATION_ID = 7400
         private const val RATE = 16000
@@ -63,6 +64,7 @@ class FridayAssistantService : Service() {
             stopSelf(); return START_NOT_STICKY
         }
         if (active.compareAndSet(false, true)) {
+            isRunning = true
             getSharedPreferences("friday_settings", MODE_PRIVATE).edit().putBoolean("background_assistant_enabled", true).apply()
             val n = notification("Preparing offline wake-word detector…")
             if (Build.VERSION.SDK_INT >= 29) startForeground(NOTIFICATION_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE) else startForeground(NOTIFICATION_ID, n)
@@ -103,13 +105,14 @@ class FridayAssistantService : Service() {
                 keywordsFile = File(dir, "keywords.txt").absolutePath, keywordsScore = 1.8f, keywordsThreshold = 0.25f
             ))
             if (Build.VERSION.SDK_INT < 31 || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
-                status("Wake-word ready; install an Android offline speech pack to capture questions."); return
+                status("On-device speech recognition is unavailable. Install an offline speech pack, then restart FRIDAY.")
+                active.set(false); isRunning = false; stopSelf(); return
             }
             status("Listening locally • say “Friday”")
             startWakeLoop()
         } catch (e: Exception) {
             status("Wake-word setup failed: ${e.message ?: e.javaClass.simpleName}")
-            active.set(false)
+            active.set(false); isRunning = false
             getSharedPreferences("friday_settings", MODE_PRIVATE).edit().putBoolean("background_assistant_enabled", false).apply()
         }
     }
@@ -277,7 +280,7 @@ class FridayAssistantService : Service() {
         super.onTaskRemoved(rootIntent)
     }
     override fun onDestroy() {
-        active.set(false); recording = false; stopWakeLoop(); releaseSpeech()
+        active.set(false); isRunning = false; recording = false; stopWakeLoop(); releaseSpeech()
         runCatching { worker?.join(1000) }; worker = null
         runCatching { spotter?.release() }; spotter = null
         wakeLock?.let { if (it.isHeld) it.release() }; wakeLock = null
