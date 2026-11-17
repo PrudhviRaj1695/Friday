@@ -154,7 +154,7 @@ fun FridayApp(vm: FridayViewModel) {
         }
     }
     var handsFreeEnabled by remember {
-        mutableStateOf(context.getSharedPreferences("friday_settings", 0).getBoolean("background_assistant_enabled", false))
+        mutableStateOf(FridayAssistantService.isRunning)
     }
     var voiceStatus by remember { mutableStateOf(if (handsFreeEnabled) "BACKGROUND ASSISTANT ACTIVE • SAY FRIDAY" else "") }
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
