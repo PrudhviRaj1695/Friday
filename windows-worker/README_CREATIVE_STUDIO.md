@@ -55,7 +55,7 @@ Example request:
 }
 ```
 
-The node IDs and input names above are illustrative. Use the values from your exported workflow.
+The node IDs and input names above are illustrative. Use the values from your exported workflow. Inspect the exact node/input schema for a selected graph with `GET /v1/creative/workflows/{workflow_name}/capabilities`. Generation controls are supplied through `input_overrides`; only values supported by that workflow should be sent. The API intentionally does not pretend that a generic seed, CFG, steps, resolution or duration field works for every graph.
 
 ## API
 
