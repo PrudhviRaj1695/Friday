@@ -84,6 +84,16 @@ async def list_workflows():
     return {"workflows": workflows}
 
 
+@router.get("/workflows/{workflow_name}/capabilities")
+async def workflow_capabilities(workflow_name: str):
+    try:
+        return await comfy.workflow_capabilities(workflow_name)
+    except ProviderError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not inspect workflow capabilities: {exc}") from exc
+
+
 @router.post("/images/generate", response_model=JobAccepted, status_code=202)
 async def generate_image(payload: GenerationRequest):
     request = payload.model_dump(exclude_none=True)
