@@ -58,3 +58,5 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+
+# Manual validation trigger: build the downloadable debug APK from this branch.
