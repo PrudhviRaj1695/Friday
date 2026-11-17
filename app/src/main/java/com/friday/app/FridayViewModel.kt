@@ -768,6 +768,8 @@ class FridayViewModel(app: Application) : AndroidViewModel(app) {
         try { engine?.close() } catch (_: Exception) { }
         engine = null
     }
+    fun shutdownForService() { onCleared() }
+
     override fun onCleared() {
         activeVoiceJob?.cancel()
         voiceScope.cancel()
