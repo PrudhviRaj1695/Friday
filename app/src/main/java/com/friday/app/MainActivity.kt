@@ -42,6 +42,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.MicOff
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Send
+import androidx.compose.material.icons.outlined.StopCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -394,7 +401,7 @@ Last error: ${state.error ?: "none"}
                     Text("YOUR PRIVATE AI COMPANION", color = Neon, fontSize = 8.sp, letterSpacing = 1.5.sp)
                 }
                 Spacer(Modifier.width(12.dp))
-                Text("⋮", color = Color.White, fontSize = 24.sp, modifier = Modifier.clickable { setupOpen = true }.padding(horizontal = 4.dp))
+                IconButton(onClick = { setupOpen = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "Open settings", tint = Color.White) }
             }
 
             Box(Modifier.fillMaxWidth().height(188.dp), contentAlignment = Alignment.Center) {
@@ -451,7 +458,7 @@ Last error: ${state.error ?: "none"}
                     } else {
                         (context as? android.app.Activity)?.requestPermissions(arrayOf(Manifest.permission.CAMERA), 7402)
                     }
-                }, enabled = !state.busy) { Text("📷", fontSize = 21.sp) }
+                }, enabled = !state.busy) { Icon(Icons.Outlined.PhotoCamera, contentDescription = "Open camera", tint = Muted) }
                 IconButton(onClick = {
                     if (handsFreeEnabled) {
                         handsFreeEnabled = false
@@ -460,7 +467,7 @@ Last error: ${state.error ?: "none"}
                         voiceStatus = "HANDS-FREE OFF"
                     } else micPermission.launch(Manifest.permission.RECORD_AUDIO)
                 }) {
-                    Text(if (handsFreeEnabled) "🔴" else "🎙", fontSize = 22.sp)
+                    Icon(if (handsFreeEnabled) Icons.Outlined.MicOff else Icons.Outlined.Mic, contentDescription = if (handsFreeEnabled) "Stop hands-free listening" else "Start hands-free listening", tint = if (handsFreeEnabled) Color(0xFFFF8A9B) else Neon)
                 }
                 OutlinedTextField(
                     value = input,
@@ -496,7 +503,7 @@ Last error: ${state.error ?: "none"}
                         colors = ButtonDefaults.buttonColors(containerColor = Violet, disabledContainerColor = Color(0xFF39213F)),
                         shape = RoundedCornerShape(24.dp),
                         contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp)
-                    ) { Text("SEND", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold) }
+                    ) { Icon(Icons.Outlined.Send, contentDescription = "Send message", tint = Color.White) }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
@@ -507,7 +514,7 @@ Last error: ${state.error ?: "none"}
                     border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB52D86)),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF8BD6))
                 ) {
-                    Text("■  STOP VOICE", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Outlined.StopCircle, contentDescription = null, modifier = Modifier.size(16.dp)); Spacer(Modifier.width(5.dp)); Text("STOP VOICE", fontSize = 10.sp, fontWeight = FontWeight.Bold) }
                 }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
